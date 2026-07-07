@@ -30,6 +30,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Hide the scrollbar cross-browser (scrolling stays fully functional —
+   Lenis smooth-scroll + snapping are unaffected; only the visible bar goes). */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge / IE */
+}
+body::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / Edge */
+}
+
 body {
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
