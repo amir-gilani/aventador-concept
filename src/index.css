@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── DESIGN TOKENS ──────────────────────────────────────────────
+   --accent is live-updated by the configurator (see store/useConfig).
+   Tune the palette in tailwind.config.js; this var is the starting
+   accent only. ---------------------------------------------------- */
+:root {
+  --carbon: #0b0b0d;
+  --surface: #141417;
+  --hi: #f4f4f2;
+  --lo: #86868c;
+  --accent: #f5c518; /* GIALLO ORION — live-updated on colour change */
+  --hairline: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* Carbon background everywhere so overscroll never flashes white. */
+html,
+body {
+  background: var(--carbon);
+  color: var(--hi);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Fixed cinematic radial vignette over the whole stage. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 50% 42%,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* Signature angular CTA corner clip. */
+.clip-cta {
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+
+/* Data/caption tracking helper. */
+.tracking-data {
+  letter-spacing: 0.18em;
+}
+
+/* Respect reduced motion at the CSS layer too. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+}
