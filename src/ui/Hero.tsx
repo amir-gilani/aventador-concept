@@ -9,6 +9,19 @@ import { useConfig, FINISHES } from '../store/useConfig'
 // live-updates paint, rim light, --accent, price and finish name.
 const WORDMARK = 'AVENTADOR'
 
+// Filled background wordmark: a dark grey only slightly lighter than --carbon
+// (#0b0b0d), with a soft vertical fade — more visible at the top, melting into
+// the background toward the bottom. Quiet depth layer, never fights the car.
+// (Clipped per-letter so background-clip:text works reliably on the spans.)
+const WORDMARK_STYLE: React.CSSProperties = {
+  backgroundImage:
+    'linear-gradient(to bottom, #2e2e34 0%, #1c1c21 55%, #0d0d10 100%)',
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  color: 'transparent',
+  WebkitTextFillColor: 'transparent',
+}
+
 export default function Hero() {
   const finish = useConfig((s) => s.finish)
   const index = useConfig((s) => s.index)
@@ -53,14 +66,10 @@ export default function Hero() {
           style={{
             fontSize: 'clamp(64px, 18vw, 260px)',
             letterSpacing: '-0.02em',
-            // Strong outlined background wordmark: visible stroke + faint fill,
-            // still quiet enough to sit behind the car.
-            color: 'rgba(244,244,242,0.06)',
-            WebkitTextStroke: '2px rgba(244,244,242,0.38)',
           }}
         >
           {WORDMARK.split('').map((c, i) => (
-            <span key={i} data-letter className="inline-block">
+            <span key={i} data-letter className="inline-block" style={WORDMARK_STYLE}>
               {c}
             </span>
           ))}
