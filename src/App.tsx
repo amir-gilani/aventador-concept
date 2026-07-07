@@ -10,6 +10,7 @@ import Slide2Performance from './ui/Slide2Performance'
 import Slide3Dimensions from './ui/Slide3Dimensions'
 import Slide4Limited from './ui/Slide4Limited'
 import Outro from './ui/Outro'
+import CartDrawer from './ui/CartDrawer'
 import { initSectionSnap } from './scroll/sectionSnap'
 import { scrollState } from './scene/useScrollProgress'
 
@@ -59,6 +60,9 @@ export default function App() {
         <Slide4Limited />
         <Outro />
       </main>
+
+      {/* z-[60] cart drawer — slides in over everything */}
+      <CartDrawer />
     </>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import Navbar from './Navbar'
 import { useConfig, FINISHES } from '../store/useConfig'
+import { useCart } from '../store/useCart'
 
 // Slide 1 — Hero (car CENTRED). The giant wordmark sits on z-0 BEHIND the
 // fixed canvas (z-10); all controls sit on z-20 ABOVE it. Configurator is
@@ -28,6 +29,16 @@ export default function Hero() {
   const set = useConfig((s) => s.set)
   const next = useConfig((s) => s.next)
   const prev = useConfig((s) => s.prev)
+  const addToCart = useCart((s) => s.add)
+
+  // Add the currently configured car (model + active finish + price) to the cart.
+  const reserve = () =>
+    addToCart({
+      model: WORDMARK,
+      finishName: finish.name,
+      hex: finish.hex,
+      price: finish.price,
+    })
 
   // Load sequence (skipped under reduced motion via gsap matchMedia guard).
   const wordmarkRef = useRef<HTMLHeadingElement>(null)
@@ -119,7 +130,10 @@ export default function Hero() {
             className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4"
             style={{ pointerEvents: 'auto' }}
           >
-            <button className="clip-cta bg-accent px-7 py-3 font-mono text-[11px] font-bold tracking-data text-carbon transition-transform hover:scale-[1.03]">
+            <button
+              onClick={reserve}
+              className="clip-cta bg-accent px-7 py-3 font-mono text-[11px] font-bold tracking-data text-carbon transition-transform hover:scale-[1.03]"
+            >
               RESERVE YOURS
             </button>
             <div className="flex items-center gap-3">
