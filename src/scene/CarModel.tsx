@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import { useConfig, FINISHES } from '../store/useConfig'
 import { useFx } from '../store/useFx'
 import { scrollState, N_SLIDES } from './useScrollProgress'
+import { pointer, drag, setCarHover } from './interaction'
 
 const LIGHT_BASE = 0.18 // resting emissive intensity of the light bars
 
@@ -22,8 +23,13 @@ const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
 const FIT_ADJUST = 1 // optional art-directed scale multiplier
 // Car horizontal position per slide: centre → right → left → centre → centre
 const CAR_X = [0, 1.7, -1.7, 0, 0]
-const ROT_BASE = -0.5 // rotation.y at the top of the page
-const ROT_RANGE = Math.PI * 2.2 // total spin across the full scroll
+// Resting pose: a right-facing three-quarter view (flip REST_Y's sign to face
+// the other way). The car no longer spins on its own — this is where it sits
+// (plus manual drag + subtle parallax).
+const REST_Y = 0.6 // resting yaw (right-facing 3/4)
+const REST_X = 0.02 // tiny resting pitch
+const PARALLAX_Y = 0.12 // how far the car yaws toward the pointer (subtle)
+const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
 // Car fade-out window in slide-position units (Slide 5 sits at 4).
 const FADE_START = 3.4 // begin fading as we leave Slide 4
 const FADE_END = 3.95 // fully invisible just before Slide 5 settles
@@ -39,7 +45,11 @@ const smoothstep = (f: number) => f * f * (3 - 2 * f)
 export default function CarModel() {
   const outer = useRef<THREE.Group>(null!) // animated: x + rotation + load scale
   const fit = useRef<THREE.Group>(null!) // normalization: recenter + scale
-  const idle = useRef(0)
+  // Smoothed rotation contributions: drag offset + parallax offset.
+  const dragY = useRef(0)
+  const dragX = useRef(0)
+  const paraY = useRef(0)
+  const paraX = useRef(0)
 
   const finish = useConfig((s) => s.finish)
 
@@ -211,18 +221,28 @@ export default function CarModel() {
     }
   }, [flashTick, headlight, taillight])
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     const t = scrollState.progress
     const sPos = t * (N_SLIDES - 1) // 0..(N-1) continuous slide position
 
-    // Rotation: continuous scroll progress + gentle idle drift.
-    if (!reduceMotion) idle.current += delta * 0.12
-    const targetRot = ROT_BASE + t * ROT_RANGE + idle.current
-    outer.current.rotation.y = lerp(
-      outer.current.rotation.y,
-      targetRot,
-      reduceMotion ? 0.2 : 0.07,
-    )
+    // Rotation = resting 3/4 pose + manual drag + subtle parallax.
+    // No self-spin. While released, the drag offset eases gently back to rest.
+    if (!drag.active) {
+      drag.targetY = lerp(drag.targetY, 0, 0.03)
+      drag.targetX = lerp(drag.targetX, 0, 0.03)
+    }
+    dragY.current = lerp(dragY.current, drag.targetY, 0.12)
+    dragX.current = lerp(dragX.current, drag.targetX, 0.12)
+
+    // Parallax toward the pointer when idle (disabled while dragging / reduced
+    // motion), lerped for a soft, living feel.
+    const paraTargetY = reduceMotion || drag.active ? 0 : pointer.x * PARALLAX_Y
+    const paraTargetX = reduceMotion || drag.active ? 0 : pointer.y * PARALLAX_X
+    paraY.current = lerp(paraY.current, paraTargetY, 0.06)
+    paraX.current = lerp(paraX.current, paraTargetX, 0.06)
+
+    outer.current.rotation.y = REST_Y + dragY.current + paraY.current
+    outer.current.rotation.x = REST_X + dragX.current + paraX.current
 
     // Fade the car OUT as we enter Slide 5 (sPos 3.4 → 3.95), so the outro
     // shows only its own content on the clean background. Reversible & smooth
@@ -249,7 +269,11 @@ export default function CarModel() {
   })
 
   return (
-    <group ref={outer}>
+    <group
+      ref={outer}
+      onPointerOver={() => setCarHover(true)}
+      onPointerOut={() => setCarHover(false)}
+    >
       <group ref={fit}>
         {/* body */}
         <mesh geometry={bodyGeo} material={paint} />

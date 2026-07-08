@@ -12,6 +12,7 @@ import Slide4Limited from './ui/Slide4Limited'
 import Outro from './ui/Outro'
 import CartDrawer from './ui/CartDrawer'
 import { initSectionSnap } from './scroll/sectionSnap'
+import { initCarInteraction } from './scene/interaction'
 import { scrollState } from './scene/useScrollProgress'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -34,8 +35,12 @@ export default function App() {
     // Full-page 5-slide section snapping, driven through this same Lenis.
     const cleanupSnap = initSectionSnap(lenis)
 
+    // Drag-to-rotate + pointer parallax for the car (window-level listeners).
+    const cleanupCar = initCarInteraction()
+
     return () => {
       cleanupSnap()
+      cleanupCar()
       gsap.ticker.remove(raf)
       lenis.destroy()
     }

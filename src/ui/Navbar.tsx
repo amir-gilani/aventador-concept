@@ -1,6 +1,20 @@
 import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { useCart } from '../store/useCart'
+import { useConfig } from '../store/useConfig'
+
+// Pick black or white for text sitting on `hex`, based on perceived luminance,
+// so the badge number stays legible for every finish (dark accent → white,
+// light accent → dark).
+function readableOn(hex: string): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  // 0.45 keeps orange/yellow/white on black text, red/blue/grey on white.
+  return luminance > 0.45 ? '#0b0b0d' : '#f4f4f2'
+}
 
 // Navbar (z-30) — NOT fixed/sticky. It lives in the hero's normal flow and
 // scrolls up and away with the hero content; once past the hero it's gone.
@@ -8,17 +22,18 @@ import { useCart } from '../store/useCart'
 export default function Navbar() {
   const count = useCart((s) => s.items.length)
   const openCart = useCart((s) => s.open)
+  const accent = useConfig((s) => s.finish.hex)
 
-  // Quick bounce on the badge whenever the count goes up.
+  // Quick "pop" on the badge whenever the count goes up: scale up larger, then
+  // spring back to rest.
   const badgeRef = useRef<HTMLSpanElement>(null)
   const prevCount = useRef(count)
   useEffect(() => {
     if (count > prevCount.current && badgeRef.current) {
-      gsap.fromTo(
-        badgeRef.current,
-        { scale: 1.7 },
-        { scale: 1, duration: 0.45, ease: 'back.out(4)' },
-      )
+      gsap
+        .timeline()
+        .to(badgeRef.current, { scale: 1.5, duration: 0.16, ease: 'power2.out' })
+        .to(badgeRef.current, { scale: 1, duration: 0.4, ease: 'back.out(3)' })
     }
     prevCount.current = count
   }, [count])
@@ -71,7 +86,8 @@ export default function Navbar() {
           {count > 0 && (
             <span
               ref={badgeRef}
-              className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold leading-none text-carbon"
+              className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold leading-none"
+              style={{ color: readableOn(accent) }}
             >
               {count}
             </span>

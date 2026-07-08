@@ -64,18 +64,22 @@ export default function Experience() {
 
   return (
     // ── STACKING CONTRACT ──────────────────────────────────────────
-    // Fixed, full-screen, z-index:10, pointer-events:none. It sits ABOVE
-    // the hero wordmark (z-0) and BELOW all foreground UI (z-20+). The
-    // canvas is fully TRANSPARENT (alpha:true + clear alpha 0, and NO
+    // Fixed, full-screen, z-index:10. It sits ABOVE the hero wordmark (z-0)
+    // and BELOW all foreground UI (z-20+). pointer-events:auto so the canvas
+    // receives click-drag to rotate the car; because every UI control sits at
+    // z-20 above it, the canvas only gets pointerdowns on empty scene / the
+    // car (see scene/interaction.ts, keyed on [data-drag-surface]).
+    // The canvas is fully TRANSPARENT (alpha:true + clear alpha 0, and NO
     // postprocessing — EffectComposer outputs an opaque buffer that would
     // cover the DOM), so it never paints over the wordmark or the UI.
     // ───────────────────────────────────────────────────────────────
     <div
       className="fixed inset-0"
-      style={{ zIndex: 10, pointerEvents: 'none' }}
+      style={{ zIndex: 10, pointerEvents: 'auto' }}
+      data-drag-surface
     >
       <Canvas
-        style={{ pointerEvents: 'none', background: 'transparent' }}
+        style={{ pointerEvents: 'auto', background: 'transparent' }}
         dpr={[1, desktop ? 2 : 1.5]}
         gl={{ antialias: true, alpha: true, premultipliedAlpha: false }}
         camera={{ fov: 38, position: [CAM_X, 1.7, 6.2], near: 0.1, far: 100 }}
