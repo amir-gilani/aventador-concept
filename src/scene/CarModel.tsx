@@ -20,14 +20,17 @@ const LIGHT_BASE = 0.18 // resting emissive intensity of the light bars
 
 // ── Tuning seams a beginner edits ──────────────────────────────
 const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
-const FIT_ADJUST = 1 // optional art-directed scale multiplier
+const FIT_ADJUST = 1.2 // art-directed scale multiplier (hero prominence)
 // Car horizontal position per slide: centre → right → left → centre → centre
 const CAR_X = [0, 1.7, -1.7, 0, 0]
-// Resting pose: a right-facing three-quarter view (flip REST_Y's sign to face
-// the other way). The car no longer spins on its own — this is where it sits
-// (plus manual drag + subtle parallax).
-const REST_Y = 0.6 // resting yaw (right-facing 3/4)
-const REST_X = 0.02 // tiny resting pitch
+// Default resting pose on load — hardcoded (x, y, z) in radians. Front-LEFT
+// three-quarter: the car's front is local +x and the camera sits in the +x/+z
+// region, so REST_Y ≈ -1.6 turns the FRONT toward the viewer with the nose
+// angled to screen-left (front + left flank visible). The car starts here and
+// eases back to it after a drag. (Press "P" in dev to log the live rotation.)
+const REST_X = 0.02 // pitch
+const REST_Y = -1.6 // yaw (front-left three-quarter)
+const REST_Z = 0 // roll
 const PARALLAX_Y = 0.12 // how far the car yaws toward the pointer (subtle)
 const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
 // Car fade-out window in slide-position units (Slide 5 sits at 4).
@@ -166,6 +169,20 @@ export default function CarModel() {
     g.position.set(-center.x * s, -box.min.y * s, -center.z * s)
   }, [])
 
+  // Log the hardcoded resting pose used, and expose a "P" key to print the
+  // car's LIVE rotation (x, y, z) so a new default angle can be captured.
+  useEffect(() => {
+    console.log('[CarModel] resting pose (x, y, z):', REST_X, REST_Y, REST_Z)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'p' && outer.current) {
+        const r = outer.current.rotation
+        console.log('[CarModel] live rotation (x, y, z):', r.x, r.y, r.z)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // Load-in: scale 0.8 → 1 with a little overshoot (skip on reduced motion).
   useEffect(() => {
     if (reduceMotion) {
@@ -243,6 +260,7 @@ export default function CarModel() {
 
     outer.current.rotation.y = REST_Y + dragY.current + paraY.current
     outer.current.rotation.x = REST_X + dragX.current + paraX.current
+    outer.current.rotation.z = REST_Z
 
     // Fade the car OUT as we enter Slide 5 (sPos 3.4 → 3.95), so the outro
     // shows only its own content on the clean background. Reversible & smooth
