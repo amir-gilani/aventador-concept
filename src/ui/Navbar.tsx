@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import gsap from 'gsap'
 import { useCart } from '../store/useCart'
 
 // Navbar (z-30) — NOT fixed/sticky. It lives in the hero's normal flow and
@@ -6,6 +8,20 @@ import { useCart } from '../store/useCart'
 export default function Navbar() {
   const count = useCart((s) => s.items.length)
   const openCart = useCart((s) => s.open)
+
+  // Quick bounce on the badge whenever the count goes up.
+  const badgeRef = useRef<HTMLSpanElement>(null)
+  const prevCount = useRef(count)
+  useEffect(() => {
+    if (count > prevCount.current && badgeRef.current) {
+      gsap.fromTo(
+        badgeRef.current,
+        { scale: 1.7 },
+        { scale: 1, duration: 0.45, ease: 'back.out(4)' },
+      )
+    }
+    prevCount.current = count
+  }, [count])
 
   return (
     <nav
@@ -53,7 +69,10 @@ export default function Navbar() {
             <path d="M2.5 3.5h2.2l2.1 11.2a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.3l1.3-7.2H6" />
           </svg>
           {count > 0 && (
-            <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold leading-none text-carbon">
+            <span
+              ref={badgeRef}
+              className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold leading-none text-carbon"
+            >
               {count}
             </span>
           )}

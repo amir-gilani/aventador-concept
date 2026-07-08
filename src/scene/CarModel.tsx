@@ -3,7 +3,10 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import gsap from 'gsap'
 import { useConfig, FINISHES } from '../store/useConfig'
+import { useFx } from '../store/useFx'
 import { scrollState, N_SLIDES } from './useScrollProgress'
+
+const LIGHT_BASE = 0.18 // resting emissive intensity of the light bars
 
 // ─── GLB SWAP POINT ───────────────────────────────────────────
 // When the real model is ready:
@@ -88,6 +91,32 @@ export default function CarModel() {
       }),
     [],
   )
+  // Emissive light bars (front headlights = cool white, rear = red). Their
+  // emissiveIntensity rests at LIGHT_BASE and pulses on reserve (see below).
+  const headlight = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#0a0a0b',
+        emissive: new THREE.Color('#eaf2ff'),
+        emissiveIntensity: LIGHT_BASE,
+        roughness: 0.3,
+        metalness: 0,
+        transparent: true,
+      }),
+    [],
+  )
+  const taillight = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#140000',
+        emissive: new THREE.Color('#ff2b2b'),
+        emissiveIntensity: LIGHT_BASE,
+        roughness: 0.3,
+        metalness: 0,
+        transparent: true,
+      }),
+    [],
+  )
 
   // Stylised low-poly wedge: side profile (length × height) extruded to width.
   const bodyGeo = useMemo(() => {
@@ -162,6 +191,26 @@ export default function CarModel() {
     }
   }, [finish.hex, paint])
 
+  // Headlight flash on reserve: a quick double emissive pulse, then back to
+  // rest. Driven by the FX bus's flashTick (incremented by the RESERVE button).
+  const flashTick = useFx((s) => s.flashTick)
+  const firstFlash = useRef(true)
+  useEffect(() => {
+    if (firstFlash.current) {
+      firstFlash.current = false // don't flash on mount
+      return
+    }
+    const bars = [headlight, taillight]
+    const tl = gsap.timeline()
+    tl.to(bars, { emissiveIntensity: 3.4, duration: 0.1, ease: 'power2.out' })
+      .to(bars, { emissiveIntensity: 0.5, duration: 0.1, ease: 'power2.in' })
+      .to(bars, { emissiveIntensity: 3.4, duration: 0.1, ease: 'power2.out' })
+      .to(bars, { emissiveIntensity: LIGHT_BASE, duration: 0.55, ease: 'power2.inOut' })
+    return () => {
+      tl.kill()
+    }
+  }, [flashTick, headlight, taillight])
+
   useFrame((_, delta) => {
     const t = scrollState.progress
     const sPos = t * (N_SLIDES - 1) // 0..(N-1) continuous slide position
@@ -184,6 +233,8 @@ export default function CarModel() {
     tyre.opacity = carOpacity
     rim.opacity = carOpacity
     glass.opacity = 0.85 * carOpacity
+    headlight.opacity = carOpacity
+    taillight.opacity = carOpacity
     outer.current.visible = carOpacity > 0.001 // fully hidden on Slide 5
 
     // X-position choreography — smoothly lerped between slide keyframes.
@@ -205,6 +256,16 @@ export default function CarModel() {
         {/* cabin glass */}
         <mesh material={glass} position={[-0.35, 0.92, 0]}>
           <boxGeometry args={[1.55, 0.5, 1.5]} />
+        </mesh>
+        {/* headlights (front = +x) + rear light bar (rear = −x) */}
+        <mesh material={headlight} position={[1.99, 0.5, 0.55]}>
+          <boxGeometry args={[0.09, 0.16, 0.34]} />
+        </mesh>
+        <mesh material={headlight} position={[1.99, 0.5, -0.55]}>
+          <boxGeometry args={[0.09, 0.16, 0.34]} />
+        </mesh>
+        <mesh material={taillight} position={[-2.0, 0.72, 0]}>
+          <boxGeometry args={[0.07, 0.12, 1.5]} />
         </mesh>
         {/* four wheels (cylinders, axis along width) */}
         {(

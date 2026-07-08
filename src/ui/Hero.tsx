@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import Navbar from './Navbar'
 import { useConfig, FINISHES } from '../store/useConfig'
 import { useCart } from '../store/useCart'
+import { useFx, playEngine } from '../store/useFx'
 
 // Slide 1 — Hero (car CENTRED). The giant wordmark sits on z-0 BEHIND the
 // fixed canvas (z-10); all controls sit on z-20 ABOVE it. Configurator is
@@ -30,15 +31,31 @@ export default function Hero() {
   const next = useConfig((s) => s.next)
   const prev = useConfig((s) => s.prev)
   const addToCart = useCart((s) => s.add)
+  const flash = useFx((s) => s.flash)
+  const muted = useFx((s) => s.muted)
+  const toggleMute = useFx((s) => s.toggleMute)
 
-  // Add the currently configured car (model + active finish + price) to the cart.
-  const reserve = () =>
+  // Brief "RESERVED ✓" confirmation state on the button.
+  const [reserved, setReserved] = useState(false)
+  const reservedTimer = useRef<number | undefined>(undefined)
+
+  // Reserve: add the configured car to the cart, flash the headlights, rev the
+  // engine (unless muted / missing), and confirm on the button briefly.
+  const reserve = () => {
     addToCart({
       model: WORDMARK,
       finishName: finish.name,
       hex: finish.hex,
       price: finish.price,
     })
+    flash()
+    if (!muted) playEngine()
+    setReserved(true)
+    window.clearTimeout(reservedTimer.current)
+    reservedTimer.current = window.setTimeout(() => setReserved(false), 1400)
+  }
+
+  useEffect(() => () => window.clearTimeout(reservedTimer.current), [])
 
   // Load sequence (skipped under reduced motion via gsap matchMedia guard).
   const wordmarkRef = useRef<HTMLHeadingElement>(null)
@@ -122,6 +139,33 @@ export default function Hero() {
             <div className="mt-2 font-mono text-[10px] tracking-data text-lo">
               DRIVETRAIN: AWD · V12 · {finish.name}
             </div>
+            {/* mute toggle for the engine-rev sound */}
+            <button
+              onClick={toggleMute}
+              aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+              aria-pressed={muted}
+              className="mt-3 flex items-center gap-2 font-mono text-[10px] tracking-data text-lo transition-colors hover:text-hi"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 9v6h4l5 4V5L8 9H4z" />
+                {muted ? (
+                  <path d="M17 9l4 6M21 9l-4 6" />
+                ) : (
+                  <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+                )}
+              </svg>
+              {muted ? 'SOUND OFF' : 'SOUND ON'}
+            </button>
           </div>
 
           {/* bottom-centre: CTA + swatches */}
@@ -132,9 +176,9 @@ export default function Hero() {
           >
             <button
               onClick={reserve}
-              className="clip-cta bg-accent px-7 py-3 font-mono text-[11px] font-bold tracking-data text-carbon transition-transform hover:scale-[1.03]"
+              className="clip-cta min-w-[168px] bg-accent px-7 py-3 font-mono text-[11px] font-bold tracking-data text-carbon transition-transform hover:scale-[1.03]"
             >
-              RESERVE YOURS
+              {reserved ? 'RESERVED ✓' : 'RESERVE YOURS'}
             </button>
             <div className="flex items-center gap-3">
               {FINISHES.map((f, i) => (
