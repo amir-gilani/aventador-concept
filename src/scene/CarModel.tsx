@@ -429,8 +429,8 @@ export default function CarModel() {
     // Rear wheel spin — a quick burnout that fast-starts then eases out.
     const spins = rearWheels.current.map((w) =>
       gsap.to(w.rotation, {
-        x: w.rotation.x + Math.PI * 12,
-        duration: 1.3,
+        x: w.rotation.x + Math.PI * 20,
+        duration: 1.5,
         ease: 'power3.out',
         overwrite: true,
       }),
@@ -477,9 +477,9 @@ export default function CarModel() {
     shake.current = Math.max(0, shake.current - delta * 2.2)
     if (shakeGroup.current) {
       const a = shake.current * shake.current // ease-out
-      shakeGroup.current.rotation.x = (Math.random() - 0.5) * 0.02 * a // pitch → rear bobs
-      shakeGroup.current.rotation.z = (Math.random() - 0.5) * 0.007 * a // slight roll
-      shakeGroup.current.position.set(0, (Math.random() - 0.5) * 0.01 * a, SHAKE_PIVOT_Z)
+      shakeGroup.current.rotation.x = (Math.random() - 0.5) * 0.013 * a // pitch → rear bobs
+      shakeGroup.current.rotation.z = (Math.random() - 0.5) * 0.005 * a // slight roll
+      shakeGroup.current.position.set(0, (Math.random() - 0.5) * 0.007 * a, SHAKE_PIVOT_Z)
     }
 
     // Slide-4 entry: give the wheels a short spin (once per entry).
