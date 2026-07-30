@@ -29,7 +29,7 @@ const CAR_X = [0, 1.7, -1.7, 0, 0]
 // real model's native forward may differ, so REST_Y likely needs re-tuning —
 // press "P" to log the live angle and tell me the number.
 const REST_X = 0.02 // pitch
-const REST_Y = -0.1 // yaw (more front-on, left three-quarter — tune for real model)
+const REST_Y = 0.0 // yaw (more front-on — tune for real model)
 const REST_Z = 0 // roll
 const PARALLAX_Y = 0.12 // how far the car yaws toward the pointer (subtle)
 const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
