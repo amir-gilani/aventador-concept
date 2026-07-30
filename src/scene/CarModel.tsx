@@ -24,14 +24,16 @@ const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
 const FIT_ADJUST = 1.165 // art-directed scale multiplier (hero size on Slide 1)
 // Car horizontal position per slide: centre → left → right → centre → centre
 // (Slide 2 = Dimensions text-right → car left · Slide 3 = Performance text-left → car right)
-const CAR_X = [0, -3.5, 2.3, 0, 0]
+const CAR_X = [0, -4.4, 2.3, 0, 0]
 // Extra yaw per slide (added to REST_Y). Slide 2 → right three-quarter view.
 const ROT_Y_SLIDE = [0, 1.3, 0, 0, 0]
 // Per-slide scale multiplier. Slide 2 sits far left (further from camera) so it
 // is scaled up to read the same on-screen size as the other slides.
 const SCALE_SLIDE = [1, 1.4, 0.9, 1, 1]
 // Per-slide vertical offset (world units). Slide 2 is lowered to sit like the rest.
-const CAR_Y = [0, -0.5, 0, 0, 0]
+const CAR_Y = [0, -0.5, 0.12, 0, 0]
+// Per-slide depth offset (world units). Negative = further from camera ("back").
+const CAR_Z = [0, 0, -0.8, 0, 0]
 // Default resting pose on load — hardcoded (x, y, z) in radians. Left-side
 // three-quarter, angled toward the front (mostly facing the viewer). NOTE: the
 // real model's native forward may differ, so REST_Y likely needs re-tuning —
@@ -485,8 +487,10 @@ export default function CarModel() {
     const desktop = window.innerWidth >= 768
     const targetX = desktop ? lerp(CAR_X[si], CAR_X[si + 1], sf) : 0
     const targetY = desktop ? lerp(CAR_Y[si], CAR_Y[si + 1], sf) : 0
+    const targetZ = desktop ? lerp(CAR_Z[si], CAR_Z[si + 1], sf) : 0
     outer.current.position.x = lerp(outer.current.position.x, targetX, 0.08)
     outer.current.position.y = lerp(outer.current.position.y, targetY, 0.08)
+    outer.current.position.z = lerp(outer.current.position.z, targetZ, 0.08)
 
     // Per-slide scale (after load, desktop only) — keeps far-left Slide 2 the
     // same on-screen size as the others.
