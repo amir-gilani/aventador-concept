@@ -37,6 +37,7 @@ const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
 const FADE_START = 3.4 // begin fading as we leave Slide 4
 const FADE_END = 3.95 // fully invisible just before Slide 5 settles
 const FLASH_BOOST = 4 // extra emissive intensity at the peak of the reserve flash
+const SMOKE_N = 24 // tyre-smoke particle count (staggered, each with its own life)
 // ───────────────────────────────────────────────────────────────
 
 const reduceMotion =
@@ -61,6 +62,13 @@ export default function CarModel() {
   const fadeMats = useRef<FadeMat[]>([]) // every material, for the fade-out
   const lightMats = useRef<LightMat[]>([]) // emissive lights, for the flash
   const rearWheels = useRef<THREE.Object3D[]>([]) // rear wheel nodes, spun on reserve
+  // Tyre-smoke: pool of billboard sprites, each with its own life/size/opacity.
+  const smokeActive = useRef(false)
+  const smokeState = useRef(
+    Array.from({ length: SMOKE_N }, () => ({
+      vx: 0, vy: 0, vz: 0, age: 0, life: 1, delay: 0,
+    })),
+  )
 
   const { scene } = useGLTF(MODEL_URL)
   const finish = useConfig((s) => s.finish)
@@ -90,6 +98,36 @@ export default function CarModel() {
         transparent: true,
       }),
     [],
+  )
+
+  // Soft round smoke sprite (procedural — no external asset).
+  const smokeTex = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = c.height = 64
+    const ctx = c.getContext('2d')!
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+    g.addColorStop(0, 'rgba(255,255,255,0.9)')
+    g.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, 64, 64)
+    return new THREE.CanvasTexture(c)
+  }, [])
+  const smokeSprites = useMemo(
+    () =>
+      Array.from({ length: SMOKE_N }, () => {
+        const g = 0.5 + Math.random() * 0.16 // slight per-particle grey variation
+        const m = new THREE.SpriteMaterial({
+          map: smokeTex,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        })
+        m.color.setRGB(g, g, g * 1.03)
+        const s = new THREE.Sprite(m)
+        s.visible = false
+        return s
+      }),
+    [smokeTex],
   )
 
   // ═══ Prepare the model: assign materials by mesh name; collect fade + light
@@ -364,13 +402,40 @@ export default function CarModel() {
         overwrite: true,
       }),
     )
+
+    // Tyre-smoke burst at the rear contact patches (ground under the wheels).
+    if (rearWheels.current.length) {
+      const wp = new THREE.Vector3()
+      const rand = (a: number, b: number) => a + Math.random() * (b - a)
+      smokeSprites.forEach((s, i) => {
+        rearWheels.current[i % rearWheels.current.length].getWorldPosition(wp)
+        s.position.set(
+          wp.x + rand(-0.35, 0.35),
+          0.04 + Math.random() * 0.1,
+          wp.z + rand(-0.35, 0.35),
+        )
+        s.scale.setScalar(rand(0.15, 0.3))
+        s.material.rotation = Math.random() * Math.PI * 2
+        s.material.opacity = 0
+        s.visible = false
+        const st = smokeState.current[i]
+        st.vx = rand(-0.8, 0.8)
+        st.vy = rand(0.25, 0.7)
+        st.vz = rand(-0.8, 0.8)
+        st.age = 0
+        st.delay = Math.random() * 0.35 // staggered birth → billows over time
+        st.life = rand(0.8, 1.4) // varied lifetime
+      })
+      smokeActive.current = true
+    }
+
     return () => {
       tl.kill()
       spins.forEach((s) => s.kill())
     }
   }, [flashTick])
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const t = scrollState.progress
     const sPos = t * (N_SLIDES - 1) // 0..(N-1) continuous slide position
 
@@ -405,14 +470,63 @@ export default function CarModel() {
       targetX = lerp(CAR_X[i], CAR_X[i + 1], f)
     }
     outer.current.position.x = lerp(outer.current.position.x, targetX, 0.08)
+
+    // Tyre-smoke: integrate each sprite with its own life, buoyancy, swirl and
+    // fade. Particles are born on a stagger and die individually → natural puff.
+    if (smokeActive.current) {
+      const damp = 1 - Math.min(1, delta * 1.1)
+      let alive = false
+      for (let i = 0; i < SMOKE_N; i++) {
+        const s = smokeSprites[i]
+        const st = smokeState.current[i]
+        st.age += delta
+        const life = st.age - st.delay // time since this particle was born
+        if (life < 0) {
+          alive = true
+          continue // not born yet
+        }
+        if (life > st.life) {
+          s.visible = false
+          continue // dead
+        }
+        alive = true
+        s.visible = true
+
+        st.vx *= damp
+        st.vz *= damp
+        st.vy = st.vy * damp + 0.35 * delta // buoyant rise
+        // gentle swirl so it curls instead of moving straight
+        st.vx += Math.sin(st.age * 2.3 + i) * 0.25 * delta
+        st.vz += Math.cos(st.age * 1.9 + i * 1.7) * 0.25 * delta
+        s.position.x += st.vx * delta
+        s.position.y += st.vy * delta
+        s.position.z += st.vz * delta
+
+        const k = life / st.life // 0..1 life progress
+        s.scale.setScalar(0.25 + k * (1.4 + (i % 5) * 0.12)) // grows, varied
+        s.material.rotation += delta * 0.5 * (i % 2 ? 1 : -1) // slow tumble
+        const fadeIn = Math.min(1, life / 0.2)
+        const fadeOut = 1 - k * k // hold, then ease out
+        s.material.opacity = fadeIn * fadeOut * 0.28
+      }
+      if (!alive) smokeActive.current = false
+    }
   })
 
   return (
-    <group ref={outer}>
-      <group ref={fit}>
-        <primitive object={scene} dispose={null} />
+    <>
+      <group ref={outer}>
+        <group ref={fit}>
+          <primitive object={scene} dispose={null} />
+        </group>
       </group>
-    </group>
+      {/* world-space tyre smoke (not parented to the animated car) */}
+      <group>
+        {smokeSprites.map((s, i) => (
+          <primitive key={i} object={s} />
+        ))}
+      </group>
+    </>
   )
 }
 
