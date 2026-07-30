@@ -79,12 +79,12 @@ export default function CarModel() {
       }),
     [],
   )
-  // Brake caliper — tinted with the active finish (small detail, big effect).
+  // Brake caliper — FIXED colour (does NOT follow the paint / finish colour).
   const caliper = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color(FINISHES[0].hex),
-        metalness: 0.4,
+        color: '#2a2a2e',
+        metalness: 0.5,
         roughness: 0.35,
         transparent: true,
       }),
@@ -119,7 +119,7 @@ export default function CarModel() {
         return
       }
 
-      // body + both doors → paint
+      // body + both doors → paint (the ONLY meshes that follow the finish colour)
       if (n.includes('carpaint')) {
         mesh.material = paint
         return
@@ -146,9 +146,9 @@ export default function CarModel() {
       if (n.includes('glass')) {
         mesh.material = track(
           new THREE.MeshPhysicalMaterial({
-            color: '#05050a',
+            color: '#050507',
             transparent: true,
-            opacity: 0.55,
+            opacity: 0.92, // near-opaque privacy glass — hides the empty interior
             roughness: 0.08,
             metalness: 0,
             clearcoat: 1,
@@ -306,10 +306,10 @@ export default function CarModel() {
     }
   }, [])
 
-  // Tween paint + caliper colour on every finish change (never snap).
+  // Tween the body paint colour on every finish change (never snap).
   useEffect(() => {
     const target = new THREE.Color(finish.hex)
-    const tw = gsap.to([paint.color, caliper.color], {
+    const tw = gsap.to(paint.color, {
       r: target.r,
       g: target.g,
       b: target.b,
@@ -319,7 +319,7 @@ export default function CarModel() {
     return () => {
       tw.kill()
     }
-  }, [finish.hex, paint, caliper])
+  }, [finish.hex, paint])
 
   // Headlight flash on reserve: a quick double emissive pulse, then back to
   // rest. Driven by the FX bus's flashTick (incremented by the RESERVE button).
