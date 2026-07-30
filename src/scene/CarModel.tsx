@@ -24,7 +24,7 @@ const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
 const FIT_ADJUST = 1.165 // art-directed scale multiplier (hero size on Slide 1)
 // Car horizontal position per slide: centre → left → right → centre → centre
 // (Slide 2 = Dimensions text-right → car left · Slide 3 = Performance text-left → car right)
-const CAR_X = [0, -4.4, 2.3, 0, 0]
+const CAR_X = [0, -4.4, 2.3, 0.6, 0]
 // Extra yaw per slide (added to REST_Y). Slide 2 → right three-quarter view.
 const ROT_Y_SLIDE = [0, 1.3, 0, 0, 0]
 // Per-slide scale multiplier. Slide 2 sits far left (further from camera) so it
@@ -72,6 +72,8 @@ export default function CarModel() {
   const fadeMats = useRef<FadeMat[]>([]) // every material, for the fade-out
   const lightMats = useRef<LightMat[]>([]) // emissive lights, for the flash
   const rearWheels = useRef<THREE.Object3D[]>([]) // rear wheel nodes, spun on reserve
+  const allWheels = useRef<THREE.Object3D[]>([]) // all four wheels, spun on Slide-4 entry
+  const slide4Spun = useRef(false) // guard so the Slide-4 spin fires once per entry
   // Tyre-smoke: pool of billboard sprites, each with its own life/size/opacity.
   const smokeActive = useRef(false)
   const smokeState = useRef(
@@ -301,6 +303,17 @@ export default function CarModel() {
       })
     }
     rearWheels.current = rears
+
+    // All four wheel rotation nodes (for the Slide-4 entry spin).
+    let all = ['FL', 'FR', 'BL', 'BR']
+      .map((k) => scene.getObjectByName(`bone_wheel_${k}_rotation`))
+      .filter(Boolean) as THREE.Object3D[]
+    if (all.length === 0) {
+      scene.traverse((o) => {
+        if (/wheel_[fb][lr]/i.test(o.name)) all.push(o)
+      })
+    }
+    allWheels.current = all
   }, [scene, paint, caliper])
 
   // AUTO-FIT: recenter on X/Z, sit on the floor (Y), scale longest axis to
@@ -454,6 +467,21 @@ export default function CarModel() {
   useFrame((_, delta) => {
     const t = scrollState.progress
     const sPos = t * (N_SLIDES - 1) // 0..(N-1) continuous slide position
+
+    // Slide-4 entry: give the wheels a short spin (once per entry).
+    if (sPos > 2.7 && !slide4Spun.current) {
+      slide4Spun.current = true
+      allWheels.current.forEach((w) =>
+        gsap.to(w.rotation, {
+          x: w.rotation.x + Math.PI * 3,
+          duration: 1.1,
+          ease: 'power2.out',
+          overwrite: true,
+        }),
+      )
+    } else if (sPos < 2.5) {
+      slide4Spun.current = false
+    }
 
     // Rotation = resting 3/4 pose + manual drag + subtle parallax. No self-spin.
     if (!drag.active) {
