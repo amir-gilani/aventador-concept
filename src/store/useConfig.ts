@@ -4,13 +4,13 @@ import { create } from 'zustand'
 export type Finish = { name: string; hex: string; price: string }
 
 export const FINISHES: Finish[] = [
-  { name: 'GIALLO ORION', hex: '#F5C518', price: '€ 420,000' },
+  { name: 'VERDE ERMES', hex: '#1f7a50', price: '€ 433,000' },
   { name: 'ARANCIO BOREALIS', hex: '#FF5B04', price: '€ 428,000' },
   { name: 'VERDE MANTIS', hex: '#6FBF3A', price: '€ 431,000' },
   { name: 'ROSSO MARS', hex: '#C41E1E', price: '€ 425,000' },
   { name: 'BLU CEPHEUS', hex: '#1E4FD6', price: '€ 424,000' },
   { name: 'GRIGIO TELESTO', hex: '#3A3D42', price: '€ 419,000' },
-  { name: 'BIANCO ICARUS', hex: '#E9E9E6', price: '€ 422,000' },
+  { name: 'ACQUA CERAUNIA', hex: '#17B6C4', price: '€ 430,000' },
 ]
 
 type ConfigState = {

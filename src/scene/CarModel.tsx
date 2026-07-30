@@ -31,7 +31,7 @@ const ROT_Y_SLIDE = [0, 1.3, 0, 0, 0]
 // is scaled up to read the same on-screen size as the other slides.
 const SCALE_SLIDE = [1, 1.4, 0.9, 1, 1]
 // Per-slide vertical offset (world units). Slide 2 is lowered to sit like the rest.
-const CAR_Y = [0, -0.5, 0.12, 0, 0]
+const CAR_Y = [0.06, -0.5, 0.12, 0, 0]
 // Per-slide depth offset (world units). Negative = further from camera ("back").
 const CAR_Z = [0, 0, -0.8, 0, 0]
 // Default resting pose on load — hardcoded (x, y, z) in radians. Left-side
@@ -72,6 +72,7 @@ export default function CarModel() {
   const paraX = useRef(0)
   const fadeMats = useRef<FadeMat[]>([]) // every material, for the fade-out
   const lightMats = useRef<LightMat[]>([]) // emissive lights, for the flash
+  const paintMeshes = useRef<THREE.Mesh[]>([]) // body panels — for the paint-sweep height range
   const rearWheels = useRef<THREE.Object3D[]>([]) // rear wheel nodes, spun on reserve
   const allWheels = useRef<THREE.Object3D[]>([]) // all four wheels, spun on Slide-4 entry
   const slide4Spun = useRef(false) // guard so the Slide-4 spin fires once per entry
@@ -90,19 +91,55 @@ export default function CarModel() {
 
   // Shared body paint — one instance, tweened on colour change. transparent so
   // it can take part in the Slide-5 fade.
-  const paint = useMemo(
-    () =>
-      new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(FINISHES[0].hex),
-        metalness: 0.85,
-        roughness: 0.3,
-        clearcoat: 1,
-        clearcoatRoughness: 0.08,
-        envMapIntensity: 1.25,
-        transparent: true,
-      }),
-    [],
-  )
+  const paint = useMemo(() => {
+    const m = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(FINISHES[0].hex),
+      metalness: 0.85,
+      roughness: 0.3,
+      clearcoat: 1,
+      clearcoatRoughness: 0.08,
+      envMapIntensity: 1.25,
+      transparent: true,
+    })
+    // PAINT SWEEP: the new colour washes up the body (bottom→top) with a bright
+    // edge line, instead of a flat crossfade. Uniforms driven from the effect
+    // below; uSweep 0→1 reveals uColorB over uColorA.
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uSweep = { value: 1 }
+      shader.uniforms.uColorA = { value: new THREE.Color(FINISHES[0].hex) }
+      shader.uniforms.uColorB = { value: new THREE.Color(FINISHES[0].hex) }
+      shader.uniforms.uYMin = { value: 0.0 }
+      shader.uniforms.uYMax = { value: 1.6 }
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vSweepY;')
+        .replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n vSweepY = (modelMatrix * vec4(transformed, 1.0)).y;',
+        )
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nuniform float uSweep;\nuniform vec3 uColorA;\nuniform vec3 uColorB;\nuniform float uYMin;\nuniform float uYMax;\nvarying float vSweepY;',
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+          {
+            float h = clamp((vSweepY - uYMin) / (uYMax - uYMin), 0.0, 1.0);
+            float w = 0.14;
+            // boundary sweeps fully from below the body (-w) to above it (1+w)
+            // so the car goes 100% old → 100% new across uSweep 0→1.
+            float b = mix(-w, 1.0 + w, uSweep);
+            float edge = smoothstep(b - w, b + w, h);
+            diffuseColor.rgb = mix(uColorB, uColorA, edge);
+            float line = clamp(1.0 - abs(h - b) / w, 0.0, 1.0);
+            diffuseColor.rgb += line * line * 0.3;
+          }`,
+        )
+      m.userData.shader = shader
+    }
+    return m
+  }, [])
   // Brake caliper — FIXED colour (does NOT follow the paint / finish colour).
   const caliper = useMemo(
     () =>
@@ -152,6 +189,7 @@ export default function CarModel() {
   useLayoutEffect(() => {
     const fades: FadeMat[] = []
     const lights: LightMat[] = []
+    const paints: THREE.Mesh[] = []
     const track = <T extends THREE.Material & { opacity: number }>(m: T): T => {
       m.transparent = true
       fades.push({ mat: m, base: m.opacity ?? 1 })
@@ -176,6 +214,7 @@ export default function CarModel() {
       // body + both doors → paint (the ONLY meshes that follow the finish colour)
       if (n.includes('carpaint')) {
         mesh.material = paint
+        paints.push(mesh)
         return
       }
       // brake caliper → finish-tinted
@@ -294,6 +333,7 @@ export default function CarModel() {
 
     fadeMats.current = fades
     lightMats.current = lights
+    paintMeshes.current = paints
 
     // Rear wheel spin nodes (BL/BR) for the reserve burnout. Prefer the rig's
     // dedicated rotation bones; fall back to the rear wheel meshes.
@@ -389,18 +429,57 @@ export default function CarModel() {
     }
   }, [])
 
-  // Tween the body paint colour on every finish change (never snap).
+  // Paint sweep on every finish change: the new colour washes up the body with
+  // a bright edge, plus a brief reflection sheen. Falls back to a plain set if
+  // the shader hasn't compiled yet (very first render).
   useEffect(() => {
     const target = new THREE.Color(finish.hex)
-    const tw = gsap.to(paint.color, {
-      r: target.r,
-      g: target.g,
-      b: target.b,
-      duration: 0.6,
-      ease: 'power2.out',
-    })
+    const shader = paint.userData.shader as
+      | { uniforms: Record<string, { value: THREE.Color | number }> }
+      | undefined
+    if (!shader) {
+      paint.color.copy(target)
+      return
+    }
+    const uA = shader.uniforms.uColorA.value as THREE.Color
+    const uB = shader.uniforms.uColorB.value as THREE.Color
+    uA.copy(uB) // start from the currently shown colour
+    uB.copy(target)
+    paint.color.copy(target) // keep material colour in sync
+
+    // Map the sweep to the BODY panels' world height only (not wheels/spoiler),
+    // so the top of the paint isn't reached before the sweep finishes.
+    if (outer.current && paintMeshes.current.length) {
+      outer.current.updateWorldMatrix(false, true)
+      const box = new THREE.Box3()
+      const tmp = new THREE.Box3()
+      for (const m of paintMeshes.current) {
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+        if (m.geometry.boundingBox) {
+          tmp.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)
+          box.union(tmp)
+        }
+      }
+      if (!box.isEmpty()) {
+        shader.uniforms.uYMin.value = box.min.y
+        shader.uniforms.uYMax.value = box.max.y
+      }
+    }
+
+    const s = { v: 0 }
+    const tl = gsap.timeline()
+    tl.to(s, {
+      v: 1,
+      duration: 0.9,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        shader.uniforms.uSweep.value = s.v
+      },
+    }, 0)
+    tl.to(paint, { envMapIntensity: 2.6, duration: 0.25, ease: 'power2.out' }, 0)
+      .to(paint, { envMapIntensity: 1.25, duration: 0.65, ease: 'power2.inOut' }, 0.25)
     return () => {
-      tw.kill()
+      tl.kill()
     }
   }, [finish.hex, paint])
 
