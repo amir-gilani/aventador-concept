@@ -21,7 +21,7 @@ const MODEL_URL = '/models/car.glb'
 
 // ── Tuning seams a beginner edits ──────────────────────────────
 const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
-const FIT_ADJUST = 1.3 // art-directed scale multiplier (hero size on Slide 1)
+const FIT_ADJUST = 1.165 // art-directed scale multiplier (hero size on Slide 1)
 // Car horizontal position per slide: centre → right → left → centre → centre
 const CAR_X = [0, 1.7, -1.7, 0, 0]
 // Default resting pose on load — hardcoded (x, y, z) in radians. Left-side
