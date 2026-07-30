@@ -48,6 +48,7 @@ const FADE_START = 3.4 // begin fading as we leave Slide 4
 const FADE_END = 3.95 // fully invisible just before Slide 5 settles
 const FLASH_BOOST = 4 // extra emissive intensity at the peak of the reserve flash
 const SMOKE_N = 24 // tyre-smoke particle count (staggered, each with its own life)
+const SHAKE_PIVOT_Z = 2.0 // reserve rock pivots near the FRONT so the rear shakes most (flip sign if reversed)
 // ───────────────────────────────────────────────────────────────
 
 const reduceMotion =
@@ -74,6 +75,8 @@ export default function CarModel() {
   const rearWheels = useRef<THREE.Object3D[]>([]) // rear wheel nodes, spun on reserve
   const allWheels = useRef<THREE.Object3D[]>([]) // all four wheels, spun on Slide-4 entry
   const slide4Spun = useRef(false) // guard so the Slide-4 spin fires once per entry
+  const shake = useRef(0) // reserve rumble intensity (1 → 0)
+  const shakeGroup = useRef<THREE.Group>(null!) // rocks the car on reserve (rear-biased)
   // Tyre-smoke: pool of billboard sprites, each with its own life/size/opacity.
   const smokeActive = useRef(false)
   const smokeState = useRef(
@@ -410,6 +413,7 @@ export default function CarModel() {
       firstFlash.current = false
       return
     }
+    shake.current = 1 // rear-biased rumble, decays in useFrame
     const proxy = { v: 0 }
     const apply = () => {
       for (const { mat, base } of lightMats.current) {
@@ -467,6 +471,16 @@ export default function CarModel() {
   useFrame((_, delta) => {
     const t = scrollState.progress
     const sPos = t * (N_SLIDES - 1) // 0..(N-1) continuous slide position
+
+    // Reserve rumble: a quick, gentle rock. Pivoted near the front (see the
+    // shakeGroup offset) so the REAR moves most. Decays to rest.
+    shake.current = Math.max(0, shake.current - delta * 2.2)
+    if (shakeGroup.current) {
+      const a = shake.current * shake.current // ease-out
+      shakeGroup.current.rotation.x = (Math.random() - 0.5) * 0.02 * a // pitch → rear bobs
+      shakeGroup.current.rotation.z = (Math.random() - 0.5) * 0.007 * a // slight roll
+      shakeGroup.current.position.set(0, (Math.random() - 0.5) * 0.01 * a, SHAKE_PIVOT_Z)
+    }
 
     // Slide-4 entry: give the wheels a short spin (once per entry).
     if (sPos > 2.7 && !slide4Spun.current) {
@@ -573,8 +587,14 @@ export default function CarModel() {
   return (
     <>
       <group ref={outer}>
-        <group ref={fit}>
-          <primitive object={scene} dispose={null} />
+        {/* shakeGroup pivots at +z (front); the inner offset re-centres the car,
+            so the reserve rock swings the REAR more than the front. */}
+        <group ref={shakeGroup} position={[0, 0, SHAKE_PIVOT_Z]}>
+          <group position={[0, 0, -SHAKE_PIVOT_Z]}>
+            <group ref={fit}>
+              <primitive object={scene} dispose={null} />
+            </group>
+          </group>
         </group>
       </group>
       {/* world-space tyre smoke (not parented to the animated car) */}
