@@ -60,8 +60,8 @@ export default function App() {
           Each root section is a [data-snap] 100vh panel — see scroll/sectionSnap. */}
       <main className="relative">
         <Hero />
-        <Slide2Performance />
         <Slide3Dimensions />
+        <Slide2Performance />
         <Slide4Limited />
         <Outro />
       </main>

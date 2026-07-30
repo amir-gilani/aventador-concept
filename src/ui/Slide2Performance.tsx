@@ -21,7 +21,7 @@ export default function Slide2Performance() {
             data-reveal
             className="mb-8 block font-mono text-[11px] tracking-data text-lo"
           >
-            002 — ENGINEERED TO INTIMIDATE
+            003 — ENGINEERED TO INTIMIDATE
           </span>
           <div className="flex flex-col gap-6">
             <StatRow value="2.8" unit="S" label="0–100 KM/H" />

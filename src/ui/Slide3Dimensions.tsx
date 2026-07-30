@@ -1,7 +1,7 @@
 import StatRow from './StatRow'
 import { useReveal } from './useReveal'
 
-// Slide 3 — Dimensions. Car animates to the LEFT; specs stack on the RIGHT.
+// Slide 2 (Dimensions). Car animates to the LEFT; specs stack on the RIGHT.
 // (Placeholder numbers — Amir swaps in real values later.)
 export default function Slide3Dimensions() {
   const ref = useReveal<HTMLDivElement>()
@@ -21,7 +21,7 @@ export default function Slide3Dimensions() {
             data-reveal
             className="mb-8 block font-mono text-[11px] tracking-data text-lo"
           >
-            003 — PROPORTIONS
+            002 — PROPORTIONS
           </span>
           <div className="flex flex-col gap-6">
             <StatRow value="4780" unit="MM" label="LENGTH" align="right" />
