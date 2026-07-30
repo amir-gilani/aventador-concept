@@ -1,41 +1,42 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import gsap from 'gsap'
 import { useConfig, FINISHES } from '../store/useConfig'
 import { useFx } from '../store/useFx'
 import { scrollState, N_SLIDES } from './useScrollProgress'
-import { pointer, drag, setCarHover } from './interaction'
-
-const LIGHT_BASE = 0.18 // resting emissive intensity of the light bars
+import { pointer, drag } from './interaction'
 
 // ─── GLB SWAP POINT ───────────────────────────────────────────
-// When the real model is ready:
-// 1. Drop the file at /public/models/car.glb (Draco-compressed)
-// 2. const { scene } = useGLTF('/models/car.glb')  (needs Draco decoder path)
-// 3. Apply the `paint` material to the body mesh(es) by name.
-// Nothing outside this file should need to change — the auto-fit block
-// below re-frames whatever geometry lives in the <group ref={fit}>.
+// STATUS: DONE — real model in place at /public/models/car.glb.
+// This build is NOT Draco-compressed, so useGLTF needs no decoder path.
+// Materials are assigned by MESH NAME below (a single glTF material is shared
+// across body/chrome/trim, so we split on mesh name, not material name).
+// The auto-fit block re-frames whatever geometry lives in <group ref={fit}>,
+// so a different .glb would only need its mesh-name rules updated here.
 // ──────────────────────────────────────────────────────────────
+
+const MODEL_URL = '/models/car.glb'
 
 // ── Tuning seams a beginner edits ──────────────────────────────
 const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
-const FIT_ADJUST = 1.2 // art-directed scale multiplier (hero prominence)
+const FIT_ADJUST = 1.3 // art-directed scale multiplier (hero size on Slide 1)
 // Car horizontal position per slide: centre → right → left → centre → centre
 const CAR_X = [0, 1.7, -1.7, 0, 0]
-// Default resting pose on load — hardcoded (x, y, z) in radians. Front-LEFT
-// three-quarter: the car's front is local +x and the camera sits in the +x/+z
-// region, so REST_Y ≈ -1.6 turns the FRONT toward the viewer with the nose
-// angled to screen-left (front + left flank visible). The car starts here and
-// eases back to it after a drag. (Press "P" in dev to log the live rotation.)
+// Default resting pose on load — hardcoded (x, y, z) in radians. Left-side
+// three-quarter, angled toward the front (mostly facing the viewer). NOTE: the
+// real model's native forward may differ, so REST_Y likely needs re-tuning —
+// press "P" to log the live angle and tell me the number.
 const REST_X = 0.02 // pitch
-const REST_Y = -1.6 // yaw (front-left three-quarter)
+const REST_Y = -0.1 // yaw (more front-on, left three-quarter — tune for real model)
 const REST_Z = 0 // roll
 const PARALLAX_Y = 0.12 // how far the car yaws toward the pointer (subtle)
 const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
 // Car fade-out window in slide-position units (Slide 5 sits at 4).
 const FADE_START = 3.4 // begin fading as we leave Slide 4
 const FADE_END = 3.95 // fully invisible just before Slide 5 settles
+const FLASH_BOOST = 4 // extra emissive intensity at the peak of the reserve flash
 // ───────────────────────────────────────────────────────────────
 
 const reduceMotion =
@@ -45,19 +46,26 @@ const reduceMotion =
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const smoothstep = (f: number) => f * f * (3 - 2 * f)
 
+// A material tracked for the Slide-5 fade (opacity = base × carOpacity).
+type FadeMat = { mat: THREE.Material & { opacity: number }; base: number }
+// An emissive light material pulsed on reserve (intensity = base + v × BOOST).
+type LightMat = { mat: THREE.MeshStandardMaterial; base: number }
+
 export default function CarModel() {
   const outer = useRef<THREE.Group>(null!) // animated: x + rotation + load scale
   const fit = useRef<THREE.Group>(null!) // normalization: recenter + scale
-  // Smoothed rotation contributions: drag offset + parallax offset.
   const dragY = useRef(0)
   const dragX = useRef(0)
   const paraY = useRef(0)
   const paraX = useRef(0)
+  const fadeMats = useRef<FadeMat[]>([]) // every material, for the fade-out
+  const lightMats = useRef<LightMat[]>([]) // emissive lights, for the flash
 
+  const { scene } = useGLTF(MODEL_URL)
   const finish = useConfig((s) => s.finish)
 
-  // Shared paint material — every body panel uses this one instance, so a
-  // single colour tween recolours the whole car.
+  // Shared body paint — one instance, tweened on colour change. transparent so
+  // it can take part in the Slide-5 fade.
   const paint = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
@@ -67,110 +75,205 @@ export default function CarModel() {
         clearcoat: 1,
         clearcoatRoughness: 0.08,
         envMapIntensity: 1.25,
-        transparent: true, // enables the Slide-5 fade-out (opacity driven below)
-      }),
-    [],
-  )
-  const tyre = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#0a0a0b',
-        roughness: 0.85,
-        metalness: 0.1,
         transparent: true,
       }),
     [],
   )
-  const rim = useMemo(
+  // Brake caliper — tinted with the active finish (small detail, big effect).
+  const caliper = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#1b1b20',
+        color: new THREE.Color(FINISHES[0].hex),
+        metalness: 0.4,
         roughness: 0.35,
-        metalness: 0.9,
-        transparent: true,
-      }),
-    [],
-  )
-  const glass = useMemo(
-    () =>
-      new THREE.MeshPhysicalMaterial({
-        color: '#05070a',
-        roughness: 0.08,
-        metalness: 0,
-        transmission: 0.5,
-        transparent: true,
-        opacity: 0.85,
-        ior: 1.4,
-      }),
-    [],
-  )
-  // Emissive light bars (front headlights = cool white, rear = red). Their
-  // emissiveIntensity rests at LIGHT_BASE and pulses on reserve (see below).
-  const headlight = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#0a0a0b',
-        emissive: new THREE.Color('#eaf2ff'),
-        emissiveIntensity: LIGHT_BASE,
-        roughness: 0.3,
-        metalness: 0,
-        transparent: true,
-      }),
-    [],
-  )
-  const taillight = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#140000',
-        emissive: new THREE.Color('#ff2b2b'),
-        emissiveIntensity: LIGHT_BASE,
-        roughness: 0.3,
-        metalness: 0,
         transparent: true,
       }),
     [],
   )
 
-  // Stylised low-poly wedge: side profile (length × height) extruded to width.
-  const bodyGeo = useMemo(() => {
-    const s = new THREE.Shape()
-    s.moveTo(-2.0, 0.18)
-    s.lineTo(2.0, 0.18)
-    s.lineTo(2.0, 0.5)
-    s.lineTo(0.7, 0.72)
-    s.lineTo(0.15, 1.02)
-    s.lineTo(-0.95, 1.02)
-    s.lineTo(-2.0, 0.68)
-    s.lineTo(-2.0, 0.18)
-    const geo = new THREE.ExtrudeGeometry(s, {
-      depth: 1.8,
-      bevelEnabled: true,
-      bevelSize: 0.06,
-      bevelThickness: 0.06,
-      bevelSegments: 2,
+  // ═══ Prepare the model: assign materials by mesh name; collect fade + light
+  //     material lists; hide beam geometry. Runs as a LAYOUT effect so it
+  //     happens BEFORE auto-fit — hidden beams must be gone before the box is
+  //     measured, or they'd inflate it and shrink the car.
+  useLayoutEffect(() => {
+    const fades: FadeMat[] = []
+    const lights: LightMat[] = []
+    const track = <T extends THREE.Material & { opacity: number }>(m: T): T => {
+      m.transparent = true
+      fades.push({ mat: m, base: m.opacity ?? 1 })
+      return m
+    }
+    track(paint)
+    track(caliper)
+
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      const n = mesh.name.toLowerCase()
+      const old = mesh.material as THREE.MeshStandardMaterial
+      const map = old?.map ?? null
+
+      // remove any projected light-beam / glow / halo / flare geometry
+      if (/beam|glow|halo|flare|volumetric|light_ray|lightray/.test(n)) {
+        mesh.visible = false
+        return
+      }
+
+      // body + both doors → paint
+      if (n.includes('carpaint')) {
+        mesh.material = paint
+        return
+      }
+      // brake caliper → finish-tinted
+      if (n.includes('caliper')) {
+        mesh.material = caliper
+        return
+      }
+      // headlight lens → clear · cabin glass → smoked
+      if (n.includes('headlight_glass')) {
+        mesh.material = track(
+          new THREE.MeshPhysicalMaterial({
+            color: '#ffffff',
+            transparent: true,
+            opacity: 0.35,
+            roughness: 0.05,
+            metalness: 0,
+            clearcoat: 1,
+          }),
+        )
+        return
+      }
+      if (n.includes('glass')) {
+        mesh.material = track(
+          new THREE.MeshPhysicalMaterial({
+            color: '#05050a',
+            transparent: true,
+            opacity: 0.55,
+            roughness: 0.08,
+            metalness: 0,
+            clearcoat: 1,
+            clearcoatRoughness: 0.04,
+          }),
+        )
+        return
+      }
+      // lamps → rear red stays lit; FRONT headlights off at rest (no beam/glow).
+      // Both still pulse on reserve (base 0 → flashes up → back to 0).
+      if (n.includes('lights_')) {
+        const warm = n.includes('brakes') || n.includes('position_back')
+        const base = warm ? 2.2 : 0
+        const m = new THREE.MeshStandardMaterial({
+          color: warm ? '#3a0505' : '#101014',
+          emissive: new THREE.Color(warm ? '#ff2222' : '#e8f0ff'),
+          emissiveIntensity: base,
+          roughness: 0.4,
+        })
+        lights.push({ mat: m, base })
+        mesh.material = track(m)
+        return
+      }
+      // rims + spoiler → dark metal
+      if (n.includes('rims') || n.includes('spoiler')) {
+        mesh.material = track(
+          new THREE.MeshStandardMaterial({
+            color: '#1b1c20',
+            metalness: 0.95,
+            roughness: 0.25,
+            envMapIntensity: 1.1,
+            map,
+          }),
+        )
+        return
+      }
+      // tyres → fully matte
+      if (n.includes('tyres')) {
+        mesh.material = track(
+          new THREE.MeshStandardMaterial({
+            color: '#0e0e10',
+            metalness: 0,
+            roughness: 0.95,
+            map,
+          }),
+        )
+        return
+      }
+      // chrome + window trim
+      if (n.includes('chrome')) {
+        mesh.material = track(
+          new THREE.MeshStandardMaterial({
+            color: '#c9ccd2',
+            metalness: 1,
+            roughness: 0.14,
+            envMapIntensity: 1.4,
+          }),
+        )
+        return
+      }
+      if (n.includes('window_trim')) {
+        mesh.material = track(
+          new THREE.MeshStandardMaterial({
+            color: '#0b0b0d',
+            metalness: 0.3,
+            roughness: 0.5,
+          }),
+        )
+        return
+      }
+      // underbody → matte black (barely seen)
+      if (n.includes('car_bottom')) {
+        mesh.material = track(
+          new THREE.MeshStandardMaterial({ color: '#050506', roughness: 1 }),
+        )
+        return
+      }
+      // everything else (carbon, diffuser) → keep its texture, just glossier
+      mesh.material = track(
+        new THREE.MeshStandardMaterial({
+          color: '#ffffff',
+          map,
+          metalness: 0.5,
+          roughness: 0.4,
+          envMapIntensity: 1.1,
+        }),
+      )
     })
-    geo.translate(0, 0, -0.9) // centre the extrusion on width
-    geo.computeVertexNormals()
-    return geo
-  }, [])
+
+    fadeMats.current = fades
+    lightMats.current = lights
+  }, [scene, paint, caliper])
 
   // AUTO-FIT: recenter on X/Z, sit on the floor (Y), scale longest axis to
-  // TARGET_LENGTH. Works identically for the real GLB later.
+  // TARGET_LENGTH. Measures ONLY visible meshes (Box3.setFromObject would also
+  // count hidden beams / far-off empty nodes and shrink the car).
   useLayoutEffect(() => {
     const g = fit.current
     g.scale.setScalar(1)
     g.position.set(0, 0, 0)
-    const box = new THREE.Box3().setFromObject(g)
+    g.updateWorldMatrix(true, true)
+
+    const box = new THREE.Box3()
+    const tmp = new THREE.Box3()
+    g.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh || m.visible === false || !m.geometry) return
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+      if (m.geometry.boundingBox) {
+        tmp.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)
+        box.union(tmp)
+      }
+    })
+    if (box.isEmpty()) return
+
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
     const maxDim = Math.max(size.x, size.y, size.z) || 1
     const s = (TARGET_LENGTH / maxDim) * FIT_ADJUST
     g.scale.setScalar(s)
     g.position.set(-center.x * s, -box.min.y * s, -center.z * s)
-  }, [])
+  }, [scene])
 
-  // Log the hardcoded resting pose used, and expose a "P" key to print the
-  // car's LIVE rotation (x, y, z) so a new default angle can be captured.
+  // Log the hardcoded resting pose, and expose "P" to print the car's LIVE
+  // rotation (x, y, z) so a new default angle can be captured for the real model.
   useEffect(() => {
     console.log('[CarModel] resting pose (x, y, z):', REST_X, REST_Y, REST_Z)
     const onKey = (e: KeyboardEvent) => {
@@ -203,10 +306,10 @@ export default function CarModel() {
     }
   }, [])
 
-  // Tween the paint colour on every finish change (never snap).
+  // Tween paint + caliper colour on every finish change (never snap).
   useEffect(() => {
     const target = new THREE.Color(finish.hex)
-    const tw = gsap.to(paint.color, {
+    const tw = gsap.to([paint.color, caliper.color], {
       r: target.r,
       g: target.g,
       b: target.b,
@@ -216,7 +319,7 @@ export default function CarModel() {
     return () => {
       tw.kill()
     }
-  }, [finish.hex, paint])
+  }, [finish.hex, paint, caliper])
 
   // Headlight flash on reserve: a quick double emissive pulse, then back to
   // rest. Driven by the FX bus's flashTick (incremented by the RESERVE button).
@@ -224,26 +327,30 @@ export default function CarModel() {
   const firstFlash = useRef(true)
   useEffect(() => {
     if (firstFlash.current) {
-      firstFlash.current = false // don't flash on mount
+      firstFlash.current = false
       return
     }
-    const bars = [headlight, taillight]
-    const tl = gsap.timeline()
-    tl.to(bars, { emissiveIntensity: 3.4, duration: 0.1, ease: 'power2.out' })
-      .to(bars, { emissiveIntensity: 0.5, duration: 0.1, ease: 'power2.in' })
-      .to(bars, { emissiveIntensity: 3.4, duration: 0.1, ease: 'power2.out' })
-      .to(bars, { emissiveIntensity: LIGHT_BASE, duration: 0.55, ease: 'power2.inOut' })
+    const proxy = { v: 0 }
+    const apply = () => {
+      for (const { mat, base } of lightMats.current) {
+        mat.emissiveIntensity = base + proxy.v * FLASH_BOOST
+      }
+    }
+    const tl = gsap.timeline({ onUpdate: apply })
+    tl.to(proxy, { v: 1, duration: 0.1, ease: 'power2.out' })
+      .to(proxy, { v: 0.15, duration: 0.1, ease: 'power2.in' })
+      .to(proxy, { v: 1, duration: 0.1, ease: 'power2.out' })
+      .to(proxy, { v: 0, duration: 0.55, ease: 'power2.inOut' })
     return () => {
       tl.kill()
     }
-  }, [flashTick, headlight, taillight])
+  }, [flashTick])
 
   useFrame(() => {
     const t = scrollState.progress
     const sPos = t * (N_SLIDES - 1) // 0..(N-1) continuous slide position
 
-    // Rotation = resting 3/4 pose + manual drag + subtle parallax.
-    // No self-spin. While released, the drag offset eases gently back to rest.
+    // Rotation = resting 3/4 pose + manual drag + subtle parallax. No self-spin.
     if (!drag.active) {
       drag.targetY = lerp(drag.targetY, 0, 0.03)
       drag.targetX = lerp(drag.targetX, 0, 0.03)
@@ -251,8 +358,6 @@ export default function CarModel() {
     dragY.current = lerp(dragY.current, drag.targetY, 0.12)
     dragX.current = lerp(dragX.current, drag.targetX, 0.12)
 
-    // Parallax toward the pointer when idle (disabled while dragging / reduced
-    // motion), lerped for a soft, living feel.
     const paraTargetY = reduceMotion || drag.active ? 0 : pointer.x * PARALLAX_Y
     const paraTargetX = reduceMotion || drag.active ? 0 : pointer.y * PARALLAX_X
     paraY.current = lerp(paraY.current, paraTargetY, 0.06)
@@ -262,21 +367,13 @@ export default function CarModel() {
     outer.current.rotation.x = REST_X + dragX.current + paraX.current
     outer.current.rotation.z = REST_Z
 
-    // Fade the car OUT as we enter Slide 5 (sPos 3.4 → 3.95), so the outro
-    // shows only its own content on the clean background. Reversible & smooth
-    // because it reads continuous progress.
+    // Fade the car OUT as we enter Slide 5 (opacity = base × carOpacity).
     const fadeK = Math.min(1, Math.max(0, (sPos - FADE_START) / (FADE_END - FADE_START)))
     const carOpacity = 1 - smoothstep(fadeK)
-    paint.opacity = carOpacity
-    tyre.opacity = carOpacity
-    rim.opacity = carOpacity
-    glass.opacity = 0.85 * carOpacity
-    headlight.opacity = carOpacity
-    taillight.opacity = carOpacity
-    outer.current.visible = carOpacity > 0.001 // fully hidden on Slide 5
+    for (const { mat, base } of fadeMats.current) mat.opacity = base * carOpacity
+    outer.current.visible = carOpacity > 0.001
 
-    // X-position choreography — smoothly lerped between slide keyframes.
-    // Centred on mobile (text stacks above/below instead of beside).
+    // X-position choreography — lerped between slide keyframes (centred on mobile).
     let targetX = 0
     if (window.innerWidth >= 768) {
       const i = Math.min(N_SLIDES - 2, Math.max(0, Math.floor(sPos)))
@@ -287,47 +384,12 @@ export default function CarModel() {
   })
 
   return (
-    <group
-      ref={outer}
-      onPointerOver={() => setCarHover(true)}
-      onPointerOut={() => setCarHover(false)}
-    >
+    <group ref={outer}>
       <group ref={fit}>
-        {/* body */}
-        <mesh geometry={bodyGeo} material={paint} />
-        {/* cabin glass */}
-        <mesh material={glass} position={[-0.35, 0.92, 0]}>
-          <boxGeometry args={[1.55, 0.5, 1.5]} />
-        </mesh>
-        {/* headlights (front = +x) + rear light bar (rear = −x) */}
-        <mesh material={headlight} position={[1.99, 0.5, 0.55]}>
-          <boxGeometry args={[0.09, 0.16, 0.34]} />
-        </mesh>
-        <mesh material={headlight} position={[1.99, 0.5, -0.55]}>
-          <boxGeometry args={[0.09, 0.16, 0.34]} />
-        </mesh>
-        <mesh material={taillight} position={[-2.0, 0.72, 0]}>
-          <boxGeometry args={[0.07, 0.12, 1.5]} />
-        </mesh>
-        {/* four wheels (cylinders, axis along width) */}
-        {(
-          [
-            [1.25, 0.95],
-            [1.25, -0.95],
-            [-1.25, 0.95],
-            [-1.25, -0.95],
-          ] as const
-        ).map(([x, z], k) => (
-          <group key={k} position={[x, 0.5, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <mesh material={tyre}>
-              <cylinderGeometry args={[0.5, 0.5, 0.34, 24]} />
-            </mesh>
-            <mesh material={rim}>
-              <cylinderGeometry args={[0.28, 0.28, 0.36, 20]} />
-            </mesh>
-          </group>
-        ))}
+        <primitive object={scene} dispose={null} />
       </group>
     </group>
   )
 }
+
+useGLTF.preload(MODEL_URL)

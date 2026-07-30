@@ -18,22 +18,6 @@ export const drag = {
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v))
 
-// Cursor is grab/grabbing ONLY over the car (never forced page-wide):
-//   dragging → grabbing · hovering car → grab · otherwise → default.
-// CarModel reports hover via setCarHover() from the car's pointer events.
-let hoveringCar = false
-function refreshCursor() {
-  document.body.style.cursor = drag.active
-    ? 'grabbing'
-    : hoveringCar
-      ? 'grab'
-      : ''
-}
-export function setCarHover(hovering: boolean) {
-  hoveringCar = hovering
-  refreshCursor()
-}
-
 export function initCarInteraction(): () => void {
   let lastX = 0
   let lastY = 0
@@ -45,7 +29,6 @@ export function initCarInteraction(): () => void {
     drag.active = true
     lastX = e.clientX
     lastY = e.clientY
-    refreshCursor()
   }
 
   const onMove = (e: PointerEvent) => {
@@ -65,7 +48,6 @@ export function initCarInteraction(): () => void {
   const onUp = () => {
     if (!drag.active) return
     drag.active = false
-    refreshCursor() // back to grab (if still over car) or default
   }
 
   window.addEventListener('pointerdown', onDown, { passive: true })
@@ -78,6 +60,5 @@ export function initCarInteraction(): () => void {
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
     window.removeEventListener('pointercancel', onUp)
-    document.body.style.cursor = ''
   }
 }
