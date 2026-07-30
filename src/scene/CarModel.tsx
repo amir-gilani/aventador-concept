@@ -29,7 +29,7 @@ const CAR_X = [0, 1.7, -1.7, 0, 0]
 // real model's native forward may differ, so REST_Y likely needs re-tuning —
 // press "P" to log the live angle and tell me the number.
 const REST_X = 0.02 // pitch
-const REST_Y = 0.0 // yaw (more front-on — tune for real model)
+const REST_Y = 0.1 // yaw (more front-on — tune for real model)
 const REST_Z = 0 // roll
 const PARALLAX_Y = 0.12 // how far the car yaws toward the pointer (subtle)
 const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
@@ -60,6 +60,7 @@ export default function CarModel() {
   const paraX = useRef(0)
   const fadeMats = useRef<FadeMat[]>([]) // every material, for the fade-out
   const lightMats = useRef<LightMat[]>([]) // emissive lights, for the flash
+  const rearWheels = useRef<THREE.Object3D[]>([]) // rear wheel nodes, spun on reserve
 
   const { scene } = useGLTF(MODEL_URL)
   const finish = useConfig((s) => s.finish)
@@ -240,6 +241,18 @@ export default function CarModel() {
 
     fadeMats.current = fades
     lightMats.current = lights
+
+    // Rear wheel spin nodes (BL/BR) for the reserve burnout. Prefer the rig's
+    // dedicated rotation bones; fall back to the rear wheel meshes.
+    let rears = ['BL', 'BR']
+      .map((k) => scene.getObjectByName(`bone_wheel_${k}_rotation`))
+      .filter(Boolean) as THREE.Object3D[]
+    if (rears.length === 0) {
+      scene.traverse((o) => {
+        if (/wheel_b[lr]/i.test(o.name)) rears.push(o)
+      })
+    }
+    rearWheels.current = rears
   }, [scene, paint, caliper])
 
   // AUTO-FIT: recenter on X/Z, sit on the floor (Y), scale longest axis to
@@ -341,8 +354,19 @@ export default function CarModel() {
       .to(proxy, { v: 0.15, duration: 0.1, ease: 'power2.in' })
       .to(proxy, { v: 1, duration: 0.1, ease: 'power2.out' })
       .to(proxy, { v: 0, duration: 0.55, ease: 'power2.inOut' })
+
+    // Rear wheel spin — a quick burnout that fast-starts then eases out.
+    const spins = rearWheels.current.map((w) =>
+      gsap.to(w.rotation, {
+        x: w.rotation.x + Math.PI * 12,
+        duration: 1.3,
+        ease: 'power3.out',
+        overwrite: true,
+      }),
+    )
     return () => {
       tl.kill()
+      spins.forEach((s) => s.kill())
     }
   }, [flashTick])
 
