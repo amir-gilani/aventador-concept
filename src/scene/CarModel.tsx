@@ -24,7 +24,14 @@ const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
 const FIT_ADJUST = 1.165 // art-directed scale multiplier (hero size on Slide 1)
 // Car horizontal position per slide: centre → left → right → centre → centre
 // (Slide 2 = Dimensions text-right → car left · Slide 3 = Performance text-left → car right)
-const CAR_X = [0, -1.7, 1.7, 0, 0]
+const CAR_X = [0, -3.0, 1.7, 0, 0]
+// Extra yaw per slide (added to REST_Y). Slide 2 → right three-quarter view.
+const ROT_Y_SLIDE = [0, 1.3, 0, 0, 0]
+// Per-slide scale multiplier. Slide 2 sits far left (further from camera) so it
+// is scaled up to read the same on-screen size as the other slides.
+const SCALE_SLIDE = [1, 1.4, 0.9, 1, 1]
+// Per-slide vertical offset (world units). Slide 2 is lowered to sit like the rest.
+const CAR_Y = [0, -0.5, 0, 0, 0]
 // Default resting pose on load — hardcoded (x, y, z) in radians. Left-side
 // three-quarter, angled toward the front (mostly facing the viewer). NOTE: the
 // real model's native forward may differ, so REST_Y likely needs re-tuning —
@@ -339,9 +346,12 @@ export default function CarModel() {
   }, [])
 
   // Load-in: scale 0.8 → 1 with a little overshoot (skip on reduced motion).
+  // `loaded` gates the per-slide scale in useFrame so it doesn't fight this tween.
+  const loaded = useRef(false)
   useEffect(() => {
     if (reduceMotion) {
       outer.current.scale.setScalar(1)
+      loaded.current = true
       return
     }
     outer.current.scale.setScalar(0.8)
@@ -352,6 +362,9 @@ export default function CarModel() {
       duration: 1.1,
       ease: 'back.out(1.4)',
       delay: 0.15,
+      onComplete: () => {
+        loaded.current = true
+      },
     })
     return () => {
       tw.kill()
@@ -453,7 +466,12 @@ export default function CarModel() {
     paraY.current = lerp(paraY.current, paraTargetY, 0.06)
     paraX.current = lerp(paraX.current, paraTargetX, 0.06)
 
-    outer.current.rotation.y = REST_Y + dragY.current + paraY.current
+    // Per-slide keyframe interpolation (shared by yaw + x-position).
+    const si = Math.min(N_SLIDES - 2, Math.max(0, Math.floor(sPos)))
+    const sf = smoothstep(sPos - si)
+    const slideYaw = lerp(ROT_Y_SLIDE[si], ROT_Y_SLIDE[si + 1], sf)
+
+    outer.current.rotation.y = REST_Y + slideYaw + dragY.current + paraY.current
     outer.current.rotation.x = REST_X + dragX.current + paraX.current
     outer.current.rotation.z = REST_Z
 
@@ -463,14 +481,20 @@ export default function CarModel() {
     for (const { mat, base } of fadeMats.current) mat.opacity = base * carOpacity
     outer.current.visible = carOpacity > 0.001
 
-    // X-position choreography — lerped between slide keyframes (centred on mobile).
-    let targetX = 0
-    if (window.innerWidth >= 768) {
-      const i = Math.min(N_SLIDES - 2, Math.max(0, Math.floor(sPos)))
-      const f = smoothstep(sPos - i)
-      targetX = lerp(CAR_X[i], CAR_X[i + 1], f)
-    }
+    // X/Y position choreography — lerped between slide keyframes (centred on mobile).
+    const desktop = window.innerWidth >= 768
+    const targetX = desktop ? lerp(CAR_X[si], CAR_X[si + 1], sf) : 0
+    const targetY = desktop ? lerp(CAR_Y[si], CAR_Y[si + 1], sf) : 0
     outer.current.position.x = lerp(outer.current.position.x, targetX, 0.08)
+    outer.current.position.y = lerp(outer.current.position.y, targetY, 0.08)
+
+    // Per-slide scale (after load, desktop only) — keeps far-left Slide 2 the
+    // same on-screen size as the others.
+    if (loaded.current && window.innerWidth >= 768) {
+      const targetS = lerp(SCALE_SLIDE[si], SCALE_SLIDE[si + 1], sf)
+      const cur = outer.current.scale.x
+      outer.current.scale.setScalar(lerp(cur, targetS, 0.08))
+    }
 
     // Tyre-smoke: integrate each sprite with its own life, buoyancy, swirl and
     // fade. Particles are born on a stagger and die individually → natural puff.
