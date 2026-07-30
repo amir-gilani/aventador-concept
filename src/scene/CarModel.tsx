@@ -24,7 +24,7 @@ const TARGET_LENGTH = 4.4 // world units the car's longest axis fits to
 const FIT_ADJUST = 1.165 // art-directed scale multiplier (hero size on Slide 1)
 // Car horizontal position per slide: centre → left → right → centre → centre
 // (Slide 2 = Dimensions text-right → car left · Slide 3 = Performance text-left → car right)
-const CAR_X = [0, -3.0, 1.7, 0, 0]
+const CAR_X = [0, -3.5, 2.3, 0, 0]
 // Extra yaw per slide (added to REST_Y). Slide 2 → right three-quarter view.
 const ROT_Y_SLIDE = [0, 1.3, 0, 0, 0]
 // Per-slide scale multiplier. Slide 2 sits far left (further from camera) so it
