@@ -10,11 +10,13 @@ import type Lenis from 'lenis'
 // Tune here: SNAP_DURATION (transition length) and TAIL_MS (cooldown
 // that swallows trackpad momentum after a snap settles).
 // ────────────────────────────────────────────────────────────────
-const SNAP_DURATION = 1.1 // seconds per section transition
+const SNAP_DURATION = 1.3 // seconds per section transition
 const TAIL_MS = 140 // ignore momentum for this long after a snap
 
-// expo.out — matches the project easing.
-const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t))
+// easeInOutCubic — soft start AND soft finish (no sharp expo.out kick-off),
+// so the section change glides in and out instead of snapping.
+const easeInOutCubic = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
 export function initSectionSnap(lenis: Lenis): () => void {
   // Reduced motion: no hijack — fall back to normal free scroll.
@@ -59,7 +61,7 @@ export function initSectionSnap(lenis: Lenis): () => void {
     locked = true
     lenis.scrollTo(target, {
       duration: SNAP_DURATION,
-      easing: easeOutExpo,
+      easing: easeInOutCubic,
       lock: true, // ignore user input during the transition
       onComplete: () => {
         window.setTimeout(() => {
