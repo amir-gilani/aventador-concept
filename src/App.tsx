@@ -11,6 +11,7 @@ import Slide3Dimensions from './ui/Slide3Dimensions'
 import Slide4Limited from './ui/Slide4Limited'
 import Outro from './ui/Outro'
 import CartDrawer from './ui/CartDrawer'
+import SlideFrame from './ui/SlideFrame'
 import { initSectionSnap } from './scroll/sectionSnap'
 import { initCarInteraction } from './scene/interaction'
 import { scrollState } from './scene/useScrollProgress'
@@ -65,6 +66,9 @@ export default function App() {
         <Slide4Limited />
         <Outro />
       </main>
+
+      {/* z-40 accent frame around slides 1–4 (fades out on the Outro) */}
+      <SlideFrame />
 
       {/* z-[60] cart drawer — slides in over everything */}
       <CartDrawer />
