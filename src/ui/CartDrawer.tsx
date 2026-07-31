@@ -17,10 +17,10 @@ export default function CartDrawer() {
       style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
       aria-hidden={!isOpen}
     >
-      {/* backdrop */}
+      {/* backdrop — dims AND blurs the page behind the drawer */}
       <div
         onClick={close}
-        className="absolute inset-0 bg-black/60 transition-opacity duration-300"
+        className="absolute inset-0 bg-black/50 backdrop-blur-md transition-opacity duration-300"
         style={{ opacity: isOpen ? 1 : 0 }}
       />
 
