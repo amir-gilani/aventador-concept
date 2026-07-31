@@ -57,6 +57,41 @@ export default function Hero() {
 
   useEffect(() => () => window.clearTimeout(reservedTimer.current), [])
 
+  // Price roll: on every finish change the price ticks over — the old value
+  // rolls UP and out, the new value rolls in from below (synced with the paint
+  // colour change). shownPrice lags finish.price by the out-phase so the swap
+  // lands while the text is hidden.
+  const [shownPrice, setShownPrice] = useState(finish.price)
+  const priceRef = useRef<HTMLDivElement>(null)
+  const firstPrice = useRef(true)
+  useEffect(() => {
+    if (firstPrice.current) {
+      firstPrice.current = false
+      return
+    }
+    const el = priceRef.current
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setShownPrice(finish.price)
+      return
+    }
+    // Timings mirror the car's paint sweep (~0.9s) so the new price lands with
+    // the colour: old rolls out over the first third, new rolls in to settle as
+    // the sweep finishes.
+    const tl = gsap.timeline()
+    tl.to(el, {
+      yPercent: -120,
+      opacity: 0,
+      duration: 0.3,
+      ease: 'power2.in',
+      onComplete: () => setShownPrice(finish.price),
+    })
+      .set(el, { yPercent: 120 })
+      .to(el, { yPercent: 0, opacity: 1, duration: 0.6, ease: 'expo.out' })
+    return () => {
+      tl.kill()
+    }
+  }, [finish.price])
+
   // Load sequence (skipped under reduced motion via gsap matchMedia guard).
   const wordmarkRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -130,11 +165,14 @@ export default function Hero() {
             className="absolute bottom-8 left-6 md:left-10"
             style={{ pointerEvents: 'auto' }}
           >
-            <div
-              className="font-display leading-none text-accent"
-              style={{ fontSize: 'clamp(28px, 4vw, 52px)' }}
-            >
-              {finish.price}
+            <div className="overflow-hidden py-[0.06em]">
+              <div
+                ref={priceRef}
+                className="font-display leading-none text-accent"
+                style={{ fontSize: 'clamp(28px, 4vw, 52px)' }}
+              >
+                {shownPrice}
+              </div>
             </div>
             <div className="mt-2 font-mono text-[10px] tracking-data text-lo">
               DRIVETRAIN: AWD · V12 · {finish.name}
