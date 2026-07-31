@@ -76,6 +76,8 @@ export default function CarModel() {
   const rearWheels = useRef<THREE.Object3D[]>([]) // rear wheel nodes, spun on reserve
   const allWheels = useRef<THREE.Object3D[]>([]) // all four wheels, spun on Slide-4 entry
   const slide4Spun = useRef(false) // guard so the Slide-4 spin fires once per entry
+  const zBase = useRef(0) // smoothed per-slide depth (lerp target lives here)
+  const driveZ = useRef(0) // Slide-4 drive-in offset: starts far back, eases to 0
   const shake = useRef(0) // reserve rumble intensity (1 → 0)
   const shakeGroup = useRef<THREE.Group>(null!) // rocks the car on reserve (rear-biased)
   // Tyre-smoke: pool of billboard sprites, each with its own life/size/opacity.
@@ -561,14 +563,17 @@ export default function CarModel() {
       shakeGroup.current.position.set(0, (Math.random() - 0.5) * 0.007 * a, SHAKE_PIVOT_Z)
     }
 
-    // Slide-4 entry: give the wheels a short spin (once per entry).
+    // Slide-4 entry: the car drives IN from the back — snap it far from the
+    // camera, then ease it forward to rest while the wheels spin (once per entry).
     if (sPos > 2.7 && !slide4Spun.current) {
       slide4Spun.current = true
+      driveZ.current = -7 // start well behind the resting depth
+      gsap.to(driveZ, { current: 0, duration: 1.3, ease: 'power3.out', overwrite: true })
       allWheels.current.forEach((w) =>
         gsap.to(w.rotation, {
-          x: w.rotation.x + Math.PI * 3,
-          duration: 1.1,
-          ease: 'power2.out',
+          x: w.rotation.x + Math.PI * 6,
+          duration: 1.3,
+          ease: 'power3.out',
           overwrite: true,
         }),
       )
@@ -611,7 +616,10 @@ export default function CarModel() {
     const targetZ = desktop ? lerp(CAR_Z[si], CAR_Z[si + 1], sf) : 0
     outer.current.position.x = lerp(outer.current.position.x, targetX, 0.08)
     outer.current.position.y = lerp(outer.current.position.y, targetY, 0.08)
-    outer.current.position.z = lerp(outer.current.position.z, targetZ, 0.08)
+    // Depth: smoothed base + the Slide-4 drive-in offset (added, not lerped, so
+    // the car snaps to the back on entry and drives forward without retreating).
+    zBase.current = lerp(zBase.current, targetZ, 0.08)
+    outer.current.position.z = zBase.current + driveZ.current
 
     // Per-slide scale (after load, desktop only) — keeps far-left Slide 2 the
     // same on-screen size as the others.
