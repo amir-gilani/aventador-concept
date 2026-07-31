@@ -28,13 +28,16 @@ export default function SlideFrame() {
   }, [])
 
   return (
-    <div ref={ref} className="pointer-events-none fixed inset-0 z-40">
-      {/* solid accent band hugging the screen edge (colour follows the finish) */}
+    <div ref={ref} className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+      {/* An 8px accent band: an inner rounded rectangle whose huge accent
+          box-shadow fills OUTWARD to the (square) screen edges. Result — outer
+          corners stay flush to the screen, inner corners are rounded. */}
       <div
-        className="absolute inset-0"
+        className="absolute"
         style={{
-          border: '8px solid var(--accent)',
-          boxShadow: 'inset 0 0 22px -6px rgba(0,0,0,0.45)',
+          inset: '8px',
+          borderRadius: '34px',
+          boxShadow: '0 0 0 100vmax var(--accent)',
         }}
       />
     </div>
