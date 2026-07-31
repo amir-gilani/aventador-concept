@@ -92,6 +92,56 @@ export default function Hero() {
     }
   }, [finish.price])
 
+  // Reserve button label rolls the same way when it toggles to / from
+  // "RESERVED ✓" (old rolls up and out, new rolls in from below).
+  const label = reserved ? 'RESERVED ✓' : 'RESERVE YOURS'
+  const [shownLabel, setShownLabel] = useState(label)
+  const labelRef = useRef<HTMLSpanElement>(null)
+  const firstLabel = useRef(true)
+  useEffect(() => {
+    if (firstLabel.current) {
+      firstLabel.current = false
+      return
+    }
+    const el = labelRef.current
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setShownLabel(label)
+      return
+    }
+    const tl = gsap.timeline()
+    tl.to(el, {
+      yPercent: -120,
+      opacity: 0,
+      duration: 0.3,
+      ease: 'power2.in',
+      onComplete: () => setShownLabel(label),
+    })
+      .set(el, { yPercent: 120 })
+      .to(el, { yPercent: 0, opacity: 1, duration: 0.6, ease: 'expo.out' })
+    return () => {
+      tl.kill()
+    }
+  }, [label])
+
+  // On every COLOUR change the button label rolls in place too (same text,
+  // same timing as the price) so it reads as part of the reconfigure.
+  const firstLabelColor = useRef(true)
+  useEffect(() => {
+    if (firstLabelColor.current) {
+      firstLabelColor.current = false
+      return
+    }
+    const el = labelRef.current
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const tl = gsap.timeline()
+    tl.to(el, { yPercent: -120, opacity: 0, duration: 0.3, ease: 'power2.in' })
+      .set(el, { yPercent: 120 })
+      .to(el, { yPercent: 0, opacity: 1, duration: 0.6, ease: 'expo.out' })
+    return () => {
+      tl.kill()
+    }
+  }, [finish.hex])
+
   // Load sequence (skipped under reduced motion via gsap matchMedia guard).
   const wordmarkRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -216,7 +266,11 @@ export default function Hero() {
               onClick={reserve}
               className="clip-cta min-w-[168px] bg-accent px-7 py-3 font-mono text-[11px] font-bold tracking-data text-carbon transition-transform hover:scale-[1.03]"
             >
-              {reserved ? 'RESERVED ✓' : 'RESERVE YOURS'}
+              <span className="block overflow-hidden py-[0.15em]">
+                <span ref={labelRef} className="block">
+                  {shownLabel}
+                </span>
+              </span>
             </button>
             <div className="flex items-center gap-3">
               {FINISHES.map((f, i) => (
