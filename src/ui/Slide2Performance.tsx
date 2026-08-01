@@ -4,12 +4,12 @@ import { useReveal } from './useReveal'
 // Slide 2 — Performance. Car animates to the RIGHT; specs stack on the LEFT.
 // (Placeholder numbers — Amir swaps in real values later.)
 export default function Slide2Performance() {
-  const ref = useReveal<HTMLDivElement>()
+  const ref = useReveal<HTMLDivElement>('left')
   return (
     <section
       id="performance"
       data-snap
-      className="relative h-screen w-full"
+      className="relative h-screen w-full overflow-hidden"
       style={{ pointerEvents: 'none' }}
     >
       {/* z-20 so DOM content renders ABOVE the fixed canvas (z-10). */}

@@ -23,6 +23,7 @@ function Callout({
   return (
     <div
       data-reveal
+      data-reveal-dir={isLeft ? 'left' : 'right'}
       className={`absolute ${pos} flex w-32 flex-col gap-1.5 ${
         isLeft
           ? 'left-4 items-end text-right md:left-[4.5rem]'
@@ -90,14 +91,17 @@ export default function Slide4Limited() {
 
       {/* z-20 — foreground UI, above the car */}
       <div ref={ref} className="relative z-20 h-full w-full">
-        {/* top-centre kicker with rules */}
-        <div
-          data-reveal
-          className="absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 font-mono text-[11px] tracking-data text-lo"
-        >
-          <span className="h-px w-10 bg-hairline" />
-          LIMITED EDITION
-          <span className="h-px w-10 bg-hairline" />
+        {/* top-centre kicker with rules — centring lives on the wrapper so the
+            reveal's transform (on the inner element) never clobbers it */}
+        <div className="absolute left-1/2 top-16 -translate-x-1/2">
+          <div
+            data-reveal
+            className="flex items-center gap-3 font-mono text-[11px] tracking-data text-lo"
+          >
+            <span className="h-px w-10 bg-hairline" />
+            LIMITED EDITION
+            <span className="h-px w-10 bg-hairline" />
+          </div>
         </div>
 
         {/* four callouts around the car */}

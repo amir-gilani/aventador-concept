@@ -4,12 +4,12 @@ import { useReveal } from './useReveal'
 // Slide 2 (Dimensions). Car animates to the LEFT; specs stack on the RIGHT.
 // (Placeholder numbers — Amir swaps in real values later.)
 export default function Slide3Dimensions() {
-  const ref = useReveal<HTMLDivElement>()
+  const ref = useReveal<HTMLDivElement>('right')
   return (
     <section
       id="dimensions"
       data-snap
-      className="relative h-screen w-full"
+      className="relative h-screen w-full overflow-hidden"
       style={{ pointerEvents: 'none' }}
     >
       {/* z-20 so DOM content renders ABOVE the fixed canvas (z-10). */}
