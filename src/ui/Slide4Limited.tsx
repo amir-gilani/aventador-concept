@@ -23,9 +23,9 @@ function Callout({
   return (
     <div
       data-reveal
-      className={`absolute ${pos} flex flex-col gap-1.5 ${
+      className={`absolute ${pos} flex w-32 flex-col gap-1.5 ${
         isLeft
-          ? 'left-6 items-end text-right md:left-24'
+          ? 'left-4 items-end text-right md:left-[4.5rem]'
           : 'right-6 items-start text-left md:right-24'
       }`}
     >
@@ -33,7 +33,9 @@ function Callout({
       <span className="-mt-0.5 font-body text-2xl font-light leading-none text-hi md:text-3xl">
         {value}
       </span>
-      <span className="font-mono text-[10px] tracking-data text-lo">{label}</span>
+      <span className="whitespace-nowrap font-mono text-[10px] tracking-data text-lo">
+        {label}
+      </span>
       {/* connector: hairline + node, pointing toward the car */}
       <span className="mt-1.5 flex items-center gap-1.5">
         {isLeft ? (
