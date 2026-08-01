@@ -78,6 +78,7 @@ export default function CarModel() {
   const slide4Spun = useRef(false) // guard so the Slide-4 spin fires once per entry
   const zBase = useRef(0) // smoothed per-slide depth (lerp target lives here)
   const driveZ = useRef(0) // Slide-4 drive-in offset: starts far back, eases to 0
+  const driveActive = useRef(false) // true while the Slide-4 drive-in is running
   const shake = useRef(0) // reserve rumble intensity (1 → 0)
   const shakeGroup = useRef<THREE.Group>(null!) // rocks the car on reserve (rear-biased)
   // Tyre-smoke: pool of billboard sprites, each with its own life/size/opacity.
@@ -563,12 +564,25 @@ export default function CarModel() {
       shakeGroup.current.position.set(0, (Math.random() - 0.5) * 0.007 * a, SHAKE_PIVOT_Z)
     }
 
-    // Slide-4 entry: the car drives IN from the back — snap it far from the
-    // camera, then ease it forward to rest while the wheels spin (once per entry).
-    if (sPos > 2.7 && !slide4Spun.current) {
+    // Slide-4 entry: the car drives IN from the back. Fire at the START of the
+    // transition and lock the depth base to the Slide-4 rest (driveActive, used
+    // below) so the car does NOT drift forward first — it snaps far back and
+    // eases straight in, wheels spinning. (Firing late let CAR_Z drift forward
+    // before the snap-back, which read as forward → back → forward.)
+    if (sPos > 2.1 && !slide4Spun.current) {
       slide4Spun.current = true
+      driveActive.current = true
+      zBase.current = CAR_Z[3] // base already home; the drive-in owns the motion
       driveZ.current = -7 // start well behind the resting depth
-      gsap.to(driveZ, { current: 0, duration: 1.3, ease: 'power3.out', overwrite: true })
+      gsap.to(driveZ, {
+        current: 0,
+        duration: 1.3,
+        ease: 'power3.out',
+        overwrite: true,
+        onComplete: () => {
+          driveActive.current = false
+        },
+      })
       allWheels.current.forEach((w) =>
         gsap.to(w.rotation, {
           x: w.rotation.x + Math.PI * 6,
@@ -577,7 +591,7 @@ export default function CarModel() {
           overwrite: true,
         }),
       )
-    } else if (sPos < 2.5) {
+    } else if (sPos < 2.05) {
       slide4Spun.current = false
     }
 
@@ -613,7 +627,13 @@ export default function CarModel() {
     const desktop = window.innerWidth >= 768
     const targetX = desktop ? lerp(CAR_X[si], CAR_X[si + 1], sf) : 0
     const targetY = desktop ? lerp(CAR_Y[si], CAR_Y[si + 1], sf) : 0
-    const targetZ = desktop ? lerp(CAR_Z[si], CAR_Z[si + 1], sf) : 0
+    // While the drive-in runs, hold the depth base at the Slide-4 rest so the
+    // additive driveZ is the ONLY depth motion (no pre-drift from CAR_Z lerp).
+    const targetZ = !desktop
+      ? 0
+      : driveActive.current
+        ? CAR_Z[3]
+        : lerp(CAR_Z[si], CAR_Z[si + 1], sf)
     outer.current.position.x = lerp(outer.current.position.x, targetX, 0.08)
     outer.current.position.y = lerp(outer.current.position.y, targetY, 0.08)
     // Depth: smoothed base + the Slide-4 drive-in offset (added, not lerped, so
