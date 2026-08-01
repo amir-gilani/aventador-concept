@@ -99,24 +99,24 @@ export default function Slide4Limited() {
         </div>
 
         {/* four callouts around the car */}
-        <Callout side="left" pos="top-[31%]" index="01" value="001" label="OF 350" />
+        <Callout side="left" pos="top-[30%]" index="01" value="001" label="OF 350" />
         <Callout
           side="left"
-          pos="bottom-[29%]"
+          pos="bottom-[30%]"
           index="02"
           value="100%"
           label="HANDCRAFTED"
         />
         <Callout
           side="right"
-          pos="top-[31%]"
+          pos="top-[30%]"
           index="03"
           value="V12"
           label="6.5L · NAT-ASP"
         />
         <Callout
           side="right"
-          pos="bottom-[29%]"
+          pos="bottom-[30%]"
           index="04"
           value={<span className="text-accent">✓</span>}
           label="CERTIFIED"
