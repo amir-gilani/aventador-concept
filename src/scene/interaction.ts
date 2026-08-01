@@ -8,6 +8,10 @@
 // stay fully clickable while empty scene / car areas drive the drag.
 // Move + release are tracked on window so a drag can continue off-canvas.
 
+import { useCart } from '../store/useCart'
+
+const cartOpen = () => useCart.getState().isOpen
+
 export const pointer = { x: 0, y: 0 } // normalized -1..1, for parallax
 export const drag = {
   active: false,
@@ -23,6 +27,7 @@ export function initCarInteraction(): () => void {
   let lastY = 0
 
   const onDown = (e: PointerEvent) => {
+    if (cartOpen()) return // cart open → no drag
     // Only begin a drag when the press lands on the canvas surface (not on UI).
     const t = e.target
     if (!(t instanceof Element) || !t.closest('[data-drag-surface]')) return
@@ -32,6 +37,7 @@ export function initCarInteraction(): () => void {
   }
 
   const onMove = (e: PointerEvent) => {
+    if (cartOpen()) return // cart open → freeze parallax + drag
     // parallax pointer, always current
     pointer.x = (e.clientX / window.innerWidth) * 2 - 1
     pointer.y = (e.clientY / window.innerHeight) * 2 - 1

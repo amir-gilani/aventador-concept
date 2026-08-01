@@ -1,4 +1,7 @@
 import type Lenis from 'lenis'
+import { useCart } from '../store/useCart'
+
+const cartOpen = () => useCart.getState().isOpen
 
 // ─── FULL-PAGE SECTION SNAPPING ─────────────────────────────────
 // One scroll gesture = one 100vh section (hero → specs → outro).
@@ -73,7 +76,22 @@ export function initSectionSnap(lenis: Lenis): () => void {
 
   // Capture phase + stopImmediatePropagation so Lenis' own wheel/touch
   // handling never runs — we are the single source of scroll intent.
+  // When the cart is open we never navigate slides. Fully lock the page and
+  // forward the wheel delta to the cart's own scroll area by hand, so the drawer
+  // list scrolls but the background can never fall through and change slides.
+  const insideCart = (e: Event) => {
+    const t = e.target
+    return t instanceof Element && !!t.closest('[data-cart-scroll]')
+  }
+
   const onWheel = (e: WheelEvent) => {
+    if (cartOpen()) {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      const el = document.querySelector<HTMLElement>('[data-cart-scroll]')
+      if (el) el.scrollTop += e.deltaY
+      return
+    }
     e.preventDefault()
     e.stopImmediatePropagation()
     if (Math.abs(e.deltaY) < 4) return
@@ -84,15 +102,21 @@ export function initSectionSnap(lenis: Lenis): () => void {
     touchStartY = e.touches[0]?.clientY ?? 0
   }
   const onTouchMove = (e: TouchEvent) => {
+    if (cartOpen()) {
+      if (!insideCart(e)) e.preventDefault()
+      return
+    }
     e.preventDefault() // block free drag between sections
   }
   const onTouchEnd = (e: TouchEvent) => {
+    if (cartOpen()) return
     const dy = touchStartY - (e.changedTouches[0]?.clientY ?? touchStartY)
     if (Math.abs(dy) < 40) return
     go(dy > 0 ? 1 : -1)
   }
 
   const onKey = (e: KeyboardEvent) => {
+    if (cartOpen()) return
     if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
       e.preventDefault()
       go(1)

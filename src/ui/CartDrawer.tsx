@@ -56,8 +56,11 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {/* items */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        {/* items (scrollbar hidden — the list still scrolls) */}
+        <div
+          data-cart-scroll
+          className="flex-1 overflow-y-auto px-6 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {items.length === 0 ? (
             <p className="mt-8 text-center font-mono text-[11px] tracking-data text-lo">
               YOUR CART IS EMPTY
