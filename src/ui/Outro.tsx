@@ -28,18 +28,8 @@ export default function Outro() {
       className="relative flex h-screen w-full flex-col overflow-hidden"
       style={{ pointerEvents: 'none' }}
     >
-      {/* z-0 — ghost wordmark + accent glow behind everything */}
+      {/* z-0 — ghost wordmark behind everything */}
       <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
-        <div
-          className="absolute"
-          style={{
-            width: 'min(96vw, 1040px)',
-            height: 'min(58vh, 520px)',
-            background: 'radial-gradient(closest-side, var(--accent), transparent 72%)',
-            opacity: 0.11,
-            filter: 'blur(32px)',
-          }}
-        />
         <span
           className="select-none whitespace-nowrap font-display uppercase leading-none"
           style={{

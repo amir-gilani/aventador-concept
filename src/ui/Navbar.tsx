@@ -54,9 +54,16 @@ export default function Navbar() {
         className="hidden gap-8 font-mono text-xs tracking-data md:flex"
         style={{ pointerEvents: 'auto' }}
       >
-        <span>MODEL</span>
-        <span>PERFORMANCE</span>
-        <span>CONFIGURE</span>
+        {['MODEL', 'PERFORMANCE', 'CONFIGURE'].map((item) => (
+          <button
+            key={item}
+            className="group relative cursor-pointer text-hi"
+          >
+            {item}
+            {/* accent underline that draws in from the left on hover */}
+            <span className="absolute -bottom-1.5 left-0 h-px w-full origin-left scale-x-0 bg-accent transition-transform duration-300 ease-out group-hover:scale-x-100" />
+          </button>
+        ))}
       </div>
 
       {/* Right side: cart + user. Clean 1.5px line icons in the nav text

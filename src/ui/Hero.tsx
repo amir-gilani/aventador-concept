@@ -11,17 +11,14 @@ import { useFx, playEngine } from '../store/useFx'
 // live-updates paint, rim light, --accent, price and finish name.
 const WORDMARK = 'AVENTADOR'
 
-// Filled background wordmark: a dark grey only slightly lighter than --carbon
-// (#0b0b0d), with a soft vertical fade — more visible at the top, melting into
-// the background toward the bottom. Quiet depth layer, never fights the car.
-// (Clipped per-letter so background-clip:text works reliably on the spans.)
+// Background wordmark (per spec): OUTLINE stroke + a low-opacity fill — an
+// editorial, premium ghost behind the car rather than a flat grey fill. The
+// hairline stroke defines the letters around the car; the faint fill keeps it a
+// quiet depth layer that never fights the car.
 const WORDMARK_STYLE: React.CSSProperties = {
-  backgroundImage:
-    'linear-gradient(to bottom, #2e2e34 0%, #1c1c21 55%, #0d0d10 100%)',
-  WebkitBackgroundClip: 'text',
-  backgroundClip: 'text',
   color: 'transparent',
-  WebkitTextFillColor: 'transparent',
+  WebkitTextFillColor: 'rgba(244,244,242,0.022)',
+  WebkitTextStroke: '1px rgba(244,244,242,0.085)',
 }
 
 export default function Hero() {
@@ -173,18 +170,6 @@ export default function Hero() {
     >
       {/* z-0 — wordmark BEHIND the car (canvas is z-10, transparent). */}
       <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
-        {/* accent stage glow low behind the car (colour follows the finish) —
-            makes the car read as lit on a coloured stage */}
-        <div
-          className="pointer-events-none absolute bottom-[4%] left-1/2 -translate-x-1/2"
-          style={{
-            width: 'min(78vw, 720px)',
-            height: '44vh',
-            background: 'radial-gradient(ellipse at center, var(--accent), transparent 68%)',
-            opacity: 0.16,
-            filter: 'blur(56px)',
-          }}
-        />
         <h1
           ref={wordmarkRef}
           className="select-none whitespace-nowrap font-display uppercase leading-[0.8]"
@@ -227,7 +212,7 @@ export default function Hero() {
             data-hero-fade
             className="absolute left-6 top-4 font-mono text-[10px] tracking-data text-lo md:left-10"
           >
-            LIMITED — 001 / 350
+            LIMITED <span className="text-lo/40">—</span> 001 / 350
           </span>
 
           {/* bottom-left: price + meta */}
@@ -239,14 +224,15 @@ export default function Hero() {
             <div className="overflow-hidden py-[0.06em]">
               <div
                 ref={priceRef}
-                className="font-display leading-none text-accent"
+                className="font-display leading-none text-accent [font-variant-numeric:tabular-nums]"
                 style={{ fontSize: 'clamp(28px, 4vw, 52px)' }}
               >
                 {shownPrice}
               </div>
             </div>
-            <div className="mt-2 font-mono text-[10px] tracking-data text-lo">
-              DRIVETRAIN: AWD · V12 · {finish.name}
+            <div className="mt-2.5 font-mono text-[10px] tracking-data text-lo">
+              DRIVETRAIN: AWD <span className="text-lo/40">·</span> V12{' '}
+              <span className="text-lo/40">·</span> {finish.name}
             </div>
             {/* mute toggle for the engine-rev sound */}
             <button
@@ -322,20 +308,20 @@ export default function Hero() {
               <button
                 onClick={prev}
                 aria-label="Previous finish"
-                className="flex h-9 w-9 items-center justify-center border border-hairline text-hi transition-colors hover:border-accent hover:text-accent"
+                className="flex h-9 w-9 items-center justify-center border border-hairline text-hi transition-colors hover:border-accent"
               >
                 ←
               </button>
               <button
                 onClick={next}
                 aria-label="Next finish"
-                className="flex h-9 w-9 items-center justify-center border border-hairline text-hi transition-colors hover:border-accent hover:text-accent"
+                className="flex h-9 w-9 items-center justify-center border border-hairline text-hi transition-colors hover:border-accent"
               >
                 →
               </button>
             </div>
             <span
-              className="font-mono text-[10px] tracking-data text-lo"
+              className="font-mono text-[10px] tracking-data text-lo [font-variant-numeric:tabular-nums]"
               style={{ writingMode: 'vertical-rl' }}
             >
               0{index + 1} / 0{FINISHES.length}

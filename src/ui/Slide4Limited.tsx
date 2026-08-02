@@ -31,7 +31,7 @@ function Callout({
       }`}
     >
       <span className="font-mono text-[9px] tracking-data text-accent">{index}</span>
-      <span className="-mt-0.5 font-body text-2xl font-light leading-none text-hi md:text-3xl">
+      <span className="-mt-0.5 font-body text-2xl font-light leading-none text-hi [font-variant-numeric:tabular-nums] md:text-3xl">
         {value}
       </span>
       <span className="whitespace-nowrap font-mono text-[10px] tracking-data text-lo">
@@ -64,19 +64,8 @@ export default function Slide4Limited() {
       className="relative h-screen w-full overflow-hidden"
       style={{ pointerEvents: 'none' }}
     >
-      {/* z-0 — behind the car (canvas is z-10): accent glow + ghost number */}
+      {/* z-0 — behind the car (canvas is z-10): ghost number */}
       <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
-        <div
-          className="absolute"
-          style={{
-            width: 'min(92vw, 900px)',
-            height: 'min(62vh, 540px)',
-            background:
-              'radial-gradient(closest-side, var(--accent), transparent 72%)',
-            opacity: 0.1,
-            filter: 'blur(34px)',
-          }}
-        />
         <span
           className="select-none font-display leading-none"
           style={{
