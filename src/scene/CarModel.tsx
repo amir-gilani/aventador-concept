@@ -508,11 +508,11 @@ export default function CarModel() {
       .to(proxy, { v: 1, duration: 0.1, ease: 'power2.out' })
       .to(proxy, { v: 0, duration: 0.55, ease: 'power2.inOut' })
 
-    // Rear wheel spin — a quick burnout that fast-starts then eases out.
+    // Rear wheel spin — a longer burnout that fast-starts then eases out.
     const spins = rearWheels.current.map((w) =>
       gsap.to(w.rotation, {
-        x: w.rotation.x + Math.PI * 20,
-        duration: 1.5,
+        x: w.rotation.x + Math.PI * 40,
+        duration: 2.8,
         ease: 'power3.out',
         overwrite: true,
       }),
@@ -538,8 +538,8 @@ export default function CarModel() {
         st.vy = rand(0.25, 0.7)
         st.vz = rand(-0.8, 0.8)
         st.age = 0
-        st.delay = Math.random() * 0.35 // staggered birth → billows over time
-        st.life = rand(0.8, 1.4) // varied lifetime
+        st.delay = Math.random() * 0.7 // staggered birth over a longer window
+        st.life = rand(1.8, 3.0) // longer-lived puffs → smoke lingers
       })
       smokeActive.current = true
     }
