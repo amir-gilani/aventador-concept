@@ -173,6 +173,18 @@ export default function Hero() {
     >
       {/* z-0 — wordmark BEHIND the car (canvas is z-10, transparent). */}
       <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
+        {/* accent stage glow low behind the car (colour follows the finish) —
+            makes the car read as lit on a coloured stage */}
+        <div
+          className="pointer-events-none absolute bottom-[4%] left-1/2 -translate-x-1/2"
+          style={{
+            width: 'min(78vw, 720px)',
+            height: '44vh',
+            background: 'radial-gradient(ellipse at center, var(--accent), transparent 68%)',
+            opacity: 0.16,
+            filter: 'blur(56px)',
+          }}
+        />
         <h1
           ref={wordmarkRef}
           className="select-none whitespace-nowrap font-display uppercase leading-[0.8]"
@@ -192,6 +204,15 @@ export default function Hero() {
       {/* z-20 — everything interactive/visible, above the car (canvas z-10).
           Depth order: wordmark (z-0) ← car (z-10) ← this UI (z-20). */}
       <div className="relative z-20 flex h-full flex-col">
+        {/* cinematic vignette — darkens the edges so the eye lands on the car.
+            First in the z-20 layer so all text/controls sit above it. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(11,11,13,0.5) 100%)',
+          }}
+        />
         {/* Contrast scrims (behind this layer's text, above the car) so the
             foreground UI never sinks into a bright car body. pointer-events
             none so they never block the canvas or the controls. */}
