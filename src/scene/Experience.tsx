@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment } from '@react-three/drei'
+import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
 import gsap from 'gsap'
 import CarModel from './CarModel'
@@ -59,6 +59,86 @@ function RimLight() {
   )
 }
 
+// ── DARK STUDIO ENVIRONMENT ────────────────────────────────────
+// Hand-built moody studio instead of the milky `preset="studio"` HDRI: a
+// near-black base with a few bright emissive panels (Lightformers) baked into a
+// cubemap. Those panels ARE the long highlight streaks you see sliding over the
+// clearcoat as the car turns — the thing that makes the paint read as paint.
+// It also loads nothing over the network (the preset fetches an HDR from a CDN).
+//
+// To go back to the HDRI at any point, swap this whole component for:
+//   <Environment preset="studio" background={false} />
+//
+// frames={1} bakes the cubemap once. The two accent panels read `finish`, so a
+// colour change re-renders this component and re-bakes exactly one frame —
+// the studio glow picks up a hint of the active paint (ambient tint sync).
+const STUDIO_INTENSITY = 1.15 // overall reflection brightness
+function StudioEnvironment() {
+  const finish = useConfig((s) => s.finish)
+  return (
+    <Environment
+      resolution={256}
+      frames={1}
+      background={false}
+      environmentIntensity={STUDIO_INTENSITY}
+    >
+      {/* near-black studio void — keeps the env moody, not grey */}
+      <color attach="background" args={['#05050a']} />
+
+      {/* overhead softbox running along the car's length: the highlight that
+          slides down the roof and bonnet */}
+      <Lightformer
+        form="rect"
+        intensity={5}
+        color="#ffffff"
+        position={[0, 6, 0]}
+        rotation={[Math.PI / 2, 0, 0]}
+        scale={[3.2, 14, 1]}
+      />
+      {/* two long side tubes — classic car-studio flank reflections. No
+          rotation prop, so Lightformer aims them at the origin for us. */}
+      <Lightformer
+        form="rect"
+        intensity={3.2}
+        color="#cddcff"
+        position={[-6, 2.6, 1]}
+        scale={[14, 1.3, 1]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={2.6}
+        color="#cddcff"
+        position={[6, 2.2, -1.5]}
+        scale={[14, 1.1, 1]}
+      />
+      {/* accent-tinted kickers front + rear — follow the active finish */}
+      <Lightformer
+        form="circle"
+        intensity={2.2}
+        color={finish.hex}
+        position={[-4.5, 1.2, -6]}
+        scale={4}
+      />
+      <Lightformer
+        form="circle"
+        intensity={1.3}
+        color={finish.hex}
+        position={[5, 0.7, 5.5]}
+        scale={3}
+      />
+      {/* dim cool bounce from below so the sills aren't pure black */}
+      <Lightformer
+        form="rect"
+        intensity={0.5}
+        color="#39404f"
+        position={[0, -4, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        scale={[14, 14, 1]}
+      />
+    </Environment>
+  )
+}
+
 export default function Experience() {
   const [desktop, setDesktop] = useState(true)
   useEffect(() => {
@@ -96,16 +176,20 @@ export default function Experience() {
           gl.setClearAlpha(0)
         }}
       >
-        {/* dim hemisphere fill + key + accent rim */}
-        <hemisphereLight intensity={0.35} color="#ffffff" groundColor="#0b0b0d" />
+        {/* Moody key/fill/rim set. The hemisphere fill stays low so the studio
+            panels (see StudioEnvironment) do the modelling, not flat ambient. */}
+        <hemisphereLight intensity={0.22} color="#ffffff" groundColor="#0b0b0d" />
         <directionalLight position={[4, 7, 5]} intensity={2} />
+        {/* cool counter-rim from the far side — separates the car's shoulder
+            line from the dark background */}
+        <directionalLight position={[3, 1.6, -5.5]} intensity={0.9} color="#9fb6ff" />
         <RimLight />
 
         <Suspense fallback={null}>
           {/* Reflections ONLY (sets scene.environment). background={false} so
-              the studio HDR never renders as a visible backdrop — the car sits
-              on the page's plain --carbon via the transparent canvas. */}
-          <Environment preset="studio" background={false} />
+              the studio never renders as a visible backdrop — the car sits on
+              the page's plain --carbon via the transparent canvas. */}
+          <StudioEnvironment />
           <CarModel />
           <Stage reflective={desktop} />
         </Suspense>
