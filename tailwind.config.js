@@ -13,7 +13,10 @@ export default {
         accent: 'var(--accent)',
       },
       fontFamily: {
-        display: ['Anton', 'sans-serif'], // hero wordmark / big type
+        display: ['Anton', 'sans-serif'], // big type / slide titles
+        // Engraved editorial serif — the giant "AVENTADOR" watermark behind
+        // the car. Cinzel is caps-only by design (stone-cut Roman letterforms).
+        serif: ['Cinzel', 'Georgia', 'serif'],
         body: ['Inter', 'sans-serif'], // UI / body
         mono: ['"Space Mono"', 'monospace'], // data / captions
       },

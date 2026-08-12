@@ -11,10 +11,19 @@ import { useFx, playEngine } from '../store/useFx'
 // live-updates paint, rim light, --accent, price and finish name.
 const WORDMARK = 'AVENTADOR'
 
-// Background wordmark treatment lives per-letter as responsive arbitrary classes
-// on the spans below: a soft grey fill + hairline stroke that reads a touch
-// stronger on mobile and near-invisible on desktop, so it stays a quiet depth
-// layer that never fights the car.
+// ── WATERMARK TUNING SEAM ──────────────────────────────────────
+// The giant "AVENTADOR" behind the car: Cinzel at REGULAR weight (400), widely
+// tracked. Light strokes + open letter-spacing are what make it read elegant
+// rather than heavy — if it ever needs more presence, widen the tracking before
+// reaching for a bolder weight. One flat opacity, no stroke, no blur.
+// The size clamp is tuned so 9 tracked Cinzel caps never overflow 375px or a
+// 1440px stage (Cinzel is naturally wide — don't raise the vw much).
+// Pure white, not the warm --hi off-white (#f4f4f2) — over the carbon stage the
+// warm token read grey/dirty at low alpha. Opacity carries the brightness.
+const WATERMARK_COLOR = '#ffffff'
+const WATERMARK_OPACITY = 0.38
+const WATERMARK_SIZE = 'clamp(28px, 9vw, 172px)'
+const WATERMARK_TRACKING = '0.02em'
 
 export default function Hero() {
   const finish = useConfig((s) => s.finish)
@@ -163,21 +172,31 @@ export default function Hero() {
       className="relative h-screen w-full"
       style={{ pointerEvents: 'none' }}
     >
-      {/* z-0 — wordmark BEHIND the car (canvas is z-10, transparent). */}
-      <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
-        {/* Wordmark behind the car. Mobile/tablet: smaller + more faded (minimal),
-            overlapping the car's lower part. Desktop: full-size. */}
+      {/* ─── WATERMARK LAYER ─────────────────────────────────────────
+          Absolutely positioned, z-0 → sits BEHIND the fixed canvas (z-10) so
+          the car reads in front of the type. pointer-events:none on the layer
+          AND the heading so it can never intercept a click-drag meant for the
+          3D scene. ------------------------------------------------------- */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
+        {/* translate-y lifts the type ABOVE the car's centre line so it crowns
+            the roofline instead of sitting behind the body. Negative = higher.
+            scale-y stretches the CAPS TALLER without widening the line — Cinzel
+            has no condensed cut, so a vertical scale is how letter height grows
+            independently of font-size. Raise/lower the 1.3 to taste. */}
         <h1
           ref={wordmarkRef}
-          className="-translate-y-[3vh] select-none whitespace-nowrap font-display uppercase leading-[0.8] tracking-[0.04em] blur-[0.7px] lg:translate-y-0 lg:blur-none lg:tracking-[-0.02em]"
-          style={{ fontSize: 'clamp(46px, 14vw, 260px)' }}
+          className="pointer-events-none -mr-[0.02em] origin-center -translate-y-[15vh] scale-y-[1.3] select-none whitespace-nowrap font-serif font-normal uppercase leading-[0.9] lg:-translate-y-[16vh]"
+          style={{
+            fontSize: WATERMARK_SIZE,
+            color: WATERMARK_COLOR,
+            opacity: WATERMARK_OPACITY,
+            // negative right margin above cancels the trailing tracking space,
+            // so the tracked line stays optically centred
+            letterSpacing: WATERMARK_TRACKING,
+          }}
         >
           {WORDMARK.split('').map((c, i) => (
-            <span
-              key={i}
-              data-letter
-              className="inline-block text-transparent [-webkit-text-fill-color:#f4f4f259] lg:[-webkit-text-fill-color:#f4f4f206] lg:[-webkit-text-stroke:1px_#f4f4f216]"
-            >
+            <span key={i} data-letter className="inline-block">
               {c}
             </span>
           ))}
