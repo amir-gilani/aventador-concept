@@ -2,10 +2,11 @@ import type { ReactNode } from 'react'
 import Footer from './Footer'
 import { useReveal } from './useReveal'
 
-// Slide 5 — Outro. Cinematic closing frame: a faint "AVENTADOR" ghost wordmark
-// and soft accent glow behind, a rule-flanked kicker, the big title, one primary
-// CTA plus a quiet secondary link, minimal line socials, and a bottom link strip
-// above the footer. The car has faded out by this point.
+// Slide 5 — Outro. Cinematic closing frame: hairline corner marks, a
+// rule-flanked kicker, the big title, one primary CTA plus a quiet secondary
+// link, minimal line socials, and a bottom link strip above the footer. The car
+// and its stage have faded out by this point, so the slide closes on plain
+// carbon — no background wordmark.
 function Social({ label, children }: { label: string; children: ReactNode }) {
   return (
     <a
@@ -28,21 +29,6 @@ export default function Outro() {
       className="relative flex h-screen w-full flex-col overflow-hidden"
       style={{ pointerEvents: 'none' }}
     >
-      {/* z-0 — ghost wordmark behind everything */}
-      <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
-        <span
-          className="select-none whitespace-nowrap font-display uppercase leading-none"
-          style={{
-            fontSize: 'clamp(120px, 24vw, 400px)',
-            letterSpacing: '-0.02em',
-            color: 'transparent',
-            WebkitTextStroke: '1px rgba(244,244,242,0.04)',
-          }}
-        >
-          AVENTADOR
-        </span>
-      </div>
-
       {/* hairline corner marks (all four) */}
       <span className="pointer-events-none absolute left-6 top-6 h-8 w-8 border-l border-t border-hairline md:left-10 md:top-10" />
       <span className="pointer-events-none absolute right-6 top-6 h-8 w-8 border-r border-t border-hairline md:right-10 md:top-10" />

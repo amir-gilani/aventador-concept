@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { ContactShadows, MeshReflectorMaterial } from '@react-three/drei'
 import * as THREE from 'three'
+import { scrollState, stageOpacity } from './useScrollProgress'
 
 // ── FLOOR TUNING SEAMS ─────────────────────────────────────────
 // A dark, mirror-like ground plane under the car: MeshReflectorMaterial
@@ -8,10 +10,17 @@ import * as THREE from 'three'
 // reflect properly instead of being faked with a gradient.
 const FLOOR_SIZE = 26 // world units — wide enough for the slide-2/3 car x offsets
 const MIRROR = 0.68 // 0 = matte, 1 = full mirror
-const BLUR: [number, number] = [400, 140] // [x, y] reflection blur — y > x = vertical smear
-const MIX_STRENGTH = 32 // reflection brightness
+const BLUR: [number, number] = [460, 175] // [x, y] reflection blur — y > x = vertical smear
+// Reflection brightness. This is a MULTIPLIER, so it amplifies specular
+// hotspots too: at 32, the small blue counter-rim / accent-kicker highlight
+// that sweeps the body as the pointer parallax tilts the car arrived on the
+// floor as a coloured blob popping in and out at one particular mouse angle.
+// Lower strength + a touch more blur smears that highlight instead of flashing
+// it, while the car's own reflection still reads.
+const MIX_STRENGTH = 21 // reflection brightness
 const CENTRE_ALPHA = 0.94 // floor opacity under the car (fades to 0 at the disc edge)
 const REFLECTOR_RES = 1024 // reflection render-target size (desktop only)
+const SHADOW_OPACITY = 0.55 // contact-shadow strength at rest
 // ───────────────────────────────────────────────────────────────
 
 // Radial greyscale ramp used as the floor's alphaMap, so the plane dissolves
@@ -41,6 +50,30 @@ function useFloorFade() {
 // extra full scene render, so small screens keep the cheap ContactShadow only.
 export default function Stage({ reflective = true }: { reflective?: boolean }) {
   const fade = useFloorFade()
+  const floor = useRef<THREE.Mesh>(null!)
+  const shadows = useRef<THREE.Group>(null!)
+
+  // SLIDE-5 CLEAR-OUT: the floor and contact shadow fade on the same curve as
+  // the car (see stageOpacity), so the outro has nothing but --carbon behind
+  // it. Hiding the floor also skips MeshReflectorMaterial's extra scene pass.
+  useFrame(() => {
+    const o = stageOpacity(scrollState.progress)
+    const on = o > 0.001
+    if (floor.current) {
+      const m = floor.current.material as THREE.Material & { opacity: number }
+      m.opacity = o
+      floor.current.visible = on
+    }
+    if (shadows.current) {
+      shadows.current.visible = on
+      shadows.current.traverse((c) => {
+        const m = (c as THREE.Mesh).material as
+          | (THREE.Material & { opacity: number })
+          | undefined
+        if (m && !Array.isArray(m)) m.opacity = SHADOW_OPACITY * o
+      })
+    }
+  })
 
   return (
     <>
@@ -48,6 +81,7 @@ export default function Stage({ reflective = true }: { reflective?: boolean }) {
         // depthWrite:false + renderOrder -10 keeps this transparent plane from
         // sorting in front of the car's (also transparent) materials.
         <mesh
+          ref={floor}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, -0.002, 0]}
           renderOrder={-10}
@@ -57,7 +91,7 @@ export default function Stage({ reflective = true }: { reflective?: boolean }) {
             resolution={REFLECTOR_RES}
             mirror={MIRROR}
             blur={BLUR}
-            mixBlur={1.1}
+            mixBlur={1.4}
             mixStrength={MIX_STRENGTH}
             mixContrast={1.1}
             depthScale={1.1} // fade the reflection with distance from the car
@@ -75,8 +109,9 @@ export default function Stage({ reflective = true }: { reflective?: boolean }) {
 
       {/* Contact shadow keeps the tyres visually planted on the mirror. */}
       <ContactShadows
+        ref={shadows}
         position={[0, 0, 0]}
-        opacity={0.55}
+        opacity={SHADOW_OPACITY}
         scale={12}
         blur={3}
         far={4}

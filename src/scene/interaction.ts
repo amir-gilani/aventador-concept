@@ -22,6 +22,14 @@ export const drag = {
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v))
 
+// ── DRAG FEEL ──────────────────────────────────────────────────
+// Radians of rotation per pixel of drag: horizontal spins the car, vertical
+// tips it within PITCH_LIMIT. Set DRAG_PITCH to 0 for spin-only.
+const DRAG_YAW = 0.01
+const DRAG_PITCH = 0.005
+const PITCH_LIMIT = 0.28 // max tilt in radians
+// ───────────────────────────────────────────────────────────────
+
 export function initCarInteraction(): () => void {
   let lastX = 0
   let lastY = 0
@@ -47,8 +55,8 @@ export function initCarInteraction(): () => void {
     const dy = e.clientY - lastY
     lastX = e.clientX
     lastY = e.clientY
-    drag.targetY += dx * 0.01 // horizontal drag → yaw
-    drag.targetX = clamp(drag.targetX + dy * 0.005, -0.28, 0.28) // vertical → slight pitch
+    drag.targetY += dx * DRAG_YAW // horizontal drag → yaw (the turntable)
+    drag.targetX = clamp(drag.targetX + dy * DRAG_PITCH, -PITCH_LIMIT, PITCH_LIMIT)
   }
 
   const onUp = () => {

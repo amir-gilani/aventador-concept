@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import gsap from 'gsap'
 import { useConfig, FINISHES } from '../store/useConfig'
 import { useFx } from '../store/useFx'
-import { scrollState, N_SLIDES } from './useScrollProgress'
+import { scrollState, N_SLIDES, stageOpacity } from './useScrollProgress'
 import { pointer, drag } from './interaction'
 
 // ─── GLB SWAP POINT ───────────────────────────────────────────
@@ -27,11 +27,19 @@ const FIT_ADJUST = 1.165 // art-directed scale multiplier (hero size on Slide 1)
 const CAR_X = [0, -4.4, 2.3, 0.6, 0]
 // Extra yaw per slide (added to REST_Y). Slide 2 → right three-quarter view.
 const ROT_Y_SLIDE = [0, 1.3, 0, 0, 0]
+// Extra PITCH per slide (added to REST_X). The model's nose is at +z, and a
+// positive rotation.x drops +z — so NEGATIVE = nose UP. Slide 1 carries a small
+// nose-up rake for a more heroic stance; it lerps away by Slide 2.
+// The car pitches about its own centre, so raising the nose digs the tail in by
+// roughly 2.6 × pitch (world units) — bump CAR_Y[0] by about half of that to
+// keep the rear wheels out of the mirror floor if you increase this.
+const ROT_X_SLIDE = [-0.03, 0, 0, 0, 0]
 // Per-slide scale multiplier. Slide 2 sits far left (further from camera) so it
 // is scaled up to read the same on-screen size as the other slides.
 const SCALE_SLIDE = [1, 1.4, 0.9, 1, 1]
-// Per-slide vertical offset (world units). Slide 2 is lowered to sit like the rest.
-const CAR_Y = [0.06, -0.5, 0.12, 0, 0]
+// Per-slide vertical offset (world units). Slide 2 is lowered to sit like the
+// rest; Slide 1 carries a little lift to offset the nose-up rake (see ROT_X_SLIDE).
+const CAR_Y = [0.09, -0.5, 0.12, 0, 0]
 // Per-slide depth offset (world units). Negative = further from camera ("back").
 const CAR_Z = [0, 0, -0.8, 0, 0]
 // Default resting pose on load — hardcoded (x, y, z) in radians. Left-side
@@ -43,9 +51,8 @@ const REST_Y = 0.1 // yaw (more front-on — tune for real model)
 const REST_Z = 0 // roll
 const PARALLAX_Y = 0.12 // how far the car yaws toward the pointer (subtle)
 const PARALLAX_X = 0.06 // how far it pitches toward the pointer (subtle)
-// Car fade-out window in slide-position units (Slide 5 sits at 4).
-const FADE_START = 3.4 // begin fading as we leave Slide 4
-const FADE_END = 3.95 // fully invisible just before Slide 5 settles
+// Car fade-out window lives in useScrollProgress.ts (stageOpacity) — the floor
+// and contact shadow read the same curve so Slide 5 clears completely.
 const FLASH_BOOST = 4 // extra emissive intensity at the peak of the reserve flash
 const SMOKE_N = 24 // tyre-smoke particle count (staggered, each with its own life)
 const SHAKE_PIVOT_Z = 2.0 // reserve rock pivots near the FRONT so the rear shakes most (flip sign if reversed)
@@ -79,6 +86,7 @@ export default function CarModel() {
   const zBase = useRef(0) // smoothed per-slide depth (lerp target lives here)
   const driveZ = useRef(0) // Slide-4 drive-in offset: starts far back, eases to 0
   const driveActive = useRef(false) // true while the Slide-4 drive-in is running
+  const driveFade = useRef(1) // 0 hides the car for the snap-to-the-back, then fades it in
   const shake = useRef(0) // reserve rumble intensity (1 → 0)
   const shakeGroup = useRef<THREE.Group>(null!) // rocks the car on reserve (rear-biased)
   // Tyre-smoke: pool of billboard sprites, each with its own life/size/opacity.
@@ -225,8 +233,16 @@ export default function CarModel() {
         mesh.material = caliper
         return
       }
-      // headlight lens → clear · cabin glass → smoked
+      // headlight lens → clear · cabin glass → smoked.
+      // GLASS MUST NOT WRITE DEPTH. Every material here is transparent (they
+      // all take part in the Slide-5 fade), so three sorts them back-to-front
+      // by distance — and that order flips as the car turns. With depthWrite
+      // on, a glass pane drawn early depth-rejects the body panels behind it
+      // for that frame; the pop is small head-on but the mirror floor blurs and
+      // amplifies it into a colour flicker whenever the car moves (parallax).
+      // renderOrder 2 also pins the glass to draw after the body, always.
       if (n.includes('headlight_glass')) {
+        mesh.renderOrder = 2
         mesh.material = track(
           new THREE.MeshPhysicalMaterial({
             color: '#ffffff',
@@ -235,11 +251,13 @@ export default function CarModel() {
             roughness: 0.05,
             metalness: 0,
             clearcoat: 1,
+            depthWrite: false,
           }),
         )
         return
       }
       if (n.includes('glass')) {
+        mesh.renderOrder = 2
         mesh.material = track(
           new THREE.MeshPhysicalMaterial({
             color: '#050507',
@@ -249,6 +267,7 @@ export default function CarModel() {
             metalness: 0,
             clearcoat: 1,
             clearcoatRoughness: 0.04,
+            depthWrite: false,
           }),
         )
         return
@@ -564,35 +583,62 @@ export default function CarModel() {
       shakeGroup.current.position.set(0, (Math.random() - 0.5) * 0.007 * a, SHAKE_PIVOT_Z)
     }
 
-    // Slide-4 entry: the car drives IN from the back. Fire at the START of the
-    // transition and lock the depth base to the Slide-4 rest (driveActive, used
-    // below) so the car does NOT drift forward first — it snaps far back and
-    // eases straight in, wheels spinning. (Firing late let CAR_Z drift forward
-    // before the snap-back, which read as forward → back → forward.)
-    if (sPos > 2.1 && !slide4Spun.current) {
+    // ── Slide-4 entry: the car drives IN from the back ───────────────
+    // The jump to the far-back start position is COVERED BY A FADE: the car
+    // dips to invisible for ~0.15s, is teleported behind the stage AND onto the
+    // Slide-4 lane (x/y), then fades back in as it drives forward with the
+    // wheels turning. Without the cover the teleport read as a glitch — the car
+    // visibly popped backwards mid-screen and then slid in diagonally, because
+    // it was still lerping from the Slide-3 keyframe while driving.
+    // While driveActive is true the x/y/z/scale targets below are LOCKED to the
+    // Slide-4 keyframes, so the only motion the viewer sees is straight-in.
+    if (sPos > 2.06 && !slide4Spun.current) {
       slide4Spun.current = true
       driveActive.current = true
-      zBase.current = CAR_Z[3] // base already home; the drive-in owns the motion
-      driveZ.current = -7 // start well behind the resting depth
+      driveFade.current = 0 // hide first — the teleport happens unseen
+      zBase.current = CAR_Z[3] // base already home; the drive-in owns the depth
+      driveZ.current = -9 // start well behind the resting depth
+      // teleport onto the Slide-4 lane while invisible (no sideways drift)
+      const wide = window.innerWidth >= 1024
+      outer.current.position.x = wide ? CAR_X[3] : 0
+      outer.current.position.y = wide ? CAR_Y[3] : 0
+
+      gsap.killTweensOf(driveFade)
       gsap.to(driveZ, {
         current: 0,
-        duration: 1.3,
+        duration: 1.5,
         ease: 'power3.out',
         overwrite: true,
         onComplete: () => {
           driveActive.current = false
         },
       })
+      // fade back in quickly — by the time it is readable it is already moving
+      gsap.to(driveFade, {
+        current: 1,
+        duration: 0.5,
+        delay: 0.15,
+        ease: 'power2.out',
+        overwrite: true,
+      })
       allWheels.current.forEach((w) =>
         gsap.to(w.rotation, {
           x: w.rotation.x + Math.PI * 6,
-          duration: 1.3,
+          duration: 1.5,
           ease: 'power3.out',
           overwrite: true,
         }),
       )
-    } else if (sPos < 2.05) {
+    } else if (sPos < 2.02) {
+      // scrolled back above Slide 4 — re-arm and clear any drive-in state
       slide4Spun.current = false
+      if (driveActive.current || driveFade.current !== 1) {
+        gsap.killTweensOf(driveZ)
+        gsap.killTweensOf(driveFade)
+        driveActive.current = false
+        driveZ.current = 0
+        driveFade.current = 1
+      }
     }
 
     // Rotation = resting 3/4 pose + manual drag + subtle parallax. No self-spin.
@@ -612,21 +658,24 @@ export default function CarModel() {
     const si = Math.min(N_SLIDES - 2, Math.max(0, Math.floor(sPos)))
     const sf = smoothstep(sPos - si)
     const slideYaw = lerp(ROT_Y_SLIDE[si], ROT_Y_SLIDE[si + 1], sf)
+    const slidePitch = lerp(ROT_X_SLIDE[si], ROT_X_SLIDE[si + 1], sf)
 
     outer.current.rotation.y = REST_Y + slideYaw + dragY.current + paraY.current
-    outer.current.rotation.x = REST_X + dragX.current + paraX.current
+    outer.current.rotation.x = REST_X + slidePitch + dragX.current + paraX.current
     outer.current.rotation.z = REST_Z
 
-    // Fade the car OUT as we enter Slide 5 (opacity = base × carOpacity).
-    const fadeK = Math.min(1, Math.max(0, (sPos - FADE_START) / (FADE_END - FADE_START)))
-    const carOpacity = 1 - smoothstep(fadeK)
+    // Fade the car OUT as we enter Slide 5, and dip it for the Slide-4
+    // teleport (opacity = base × carOpacity).
+    const carOpacity = stageOpacity(t) * driveFade.current
     for (const { mat, base } of fadeMats.current) mat.opacity = base * carOpacity
     outer.current.visible = carOpacity > 0.001
 
     // X/Y position choreography — lerped between slide keyframes (centred on mobile).
     const desktop = window.innerWidth >= 1024 // mobile + tablet share the small-screen composition
-    const targetX = desktop ? lerp(CAR_X[si], CAR_X[si + 1], sf) : 0
-    const targetY = desktop ? lerp(CAR_Y[si], CAR_Y[si + 1], sf) : 0
+    // While the drive-in runs, every lane target is locked to Slide 4 so the
+    // car travels straight toward the camera instead of also sliding across.
+    const targetX = !desktop ? 0 : driveActive.current ? CAR_X[3] : lerp(CAR_X[si], CAR_X[si + 1], sf)
+    const targetY = !desktop ? 0 : driveActive.current ? CAR_Y[3] : lerp(CAR_Y[si], CAR_Y[si + 1], sf)
     // While the drive-in runs, hold the depth base at the Slide-4 rest so the
     // additive driveZ is the ONLY depth motion (no pre-drift from CAR_Z lerp).
     const targetZ = !desktop
@@ -644,7 +693,9 @@ export default function CarModel() {
     // Per-slide scale (after load, desktop only) — keeps far-left Slide 2 the
     // same on-screen size as the others.
     if (loaded.current && window.innerWidth >= 1024) {
-      const targetS = lerp(SCALE_SLIDE[si], SCALE_SLIDE[si + 1], sf)
+      const targetS = driveActive.current
+        ? SCALE_SLIDE[3]
+        : lerp(SCALE_SLIDE[si], SCALE_SLIDE[si + 1], sf)
       const cur = outer.current.scale.x
       outer.current.scale.setScalar(lerp(cur, targetS, 0.08))
     }

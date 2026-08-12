@@ -4,6 +4,7 @@ import Navbar from './Navbar'
 import { useConfig, FINISHES } from '../store/useConfig'
 import { useCart } from '../store/useCart'
 import { useFx, playEngine } from '../store/useFx'
+import { scrollState, N_SLIDES } from '../scene/useScrollProgress'
 
 // Slide 1 — Hero (car CENTRED). The giant wordmark sits on z-0 BEHIND the
 // fixed canvas (z-10); all controls sit on z-20 ABOVE it. Configurator is
@@ -21,9 +22,21 @@ const WORDMARK = 'AVENTADOR'
 // Pure white, not the warm --hi off-white (#f4f4f2) — over the carbon stage the
 // warm token read grey/dirty at low alpha. Opacity carries the brightness.
 const WATERMARK_COLOR = '#ffffff'
-const WATERMARK_OPACITY = 0.38
+const WATERMARK_OPACITY = 0.16 // faint — raise toward 0.38 for more presence
 const WATERMARK_SIZE = 'clamp(28px, 9vw, 172px)'
 const WATERMARK_TRACKING = '0.02em'
+// TOP→BOTTOM FALLOFF: the letters are solid at the top and dissolve toward
+// their base, so the type sinks into the carbon instead of ending on a hard
+// baseline. A CSS mask (not a colour gradient) so it works over anything —
+// black = keep, transparent = hide. Move the middle stop to shift where the
+// fade bites; drop the last stop below 100% to leave a faint tail.
+const WATERMARK_MASK =
+  'linear-gradient(to bottom, #000 0%, #000 34%, rgba(0,0,0,0.45) 68%, rgba(0,0,0,0) 100%)'
+// It also FADES as you leave the hero, so it dissolves instead of just sliding
+// off with the section. Window in slide-position units (Slide 1 sits at 0,
+// Slide 2 at 1) — widen WM_FADE_END to let it linger further into the scroll.
+const WM_FADE_START = 0.08 // fully lit while the hero is settled
+const WM_FADE_END = 0.6 // gone well before Slide 2 settles
 
 export default function Hero() {
   const finish = useConfig((s) => s.finish)
@@ -145,6 +158,29 @@ export default function Hero() {
 
   // Load sequence (skipped under reduced motion via gsap matchMedia guard).
   const wordmarkRef = useRef<HTMLHeadingElement>(null)
+
+  // Watermark scroll fade — same idiom as SlideFrame: read the shared scroll
+  // progress in a rAF and write style.opacity directly (no React re-renders,
+  // no scroll handler driving animated values). The load-in tween animates the
+  // letter spans, so writing opacity on the <h1> never fights it.
+  useEffect(() => {
+    let raf = 0
+    const tick = () => {
+      const sPos = scrollState.progress * (N_SLIDES - 1)
+      const k = Math.min(
+        1,
+        Math.max(0, (sPos - WM_FADE_START) / (WM_FADE_END - WM_FADE_START)),
+      )
+      const eased = k * k * (3 - 2 * k) // smoothstep
+      if (wordmarkRef.current) {
+        wordmarkRef.current.style.opacity = String(WATERMARK_OPACITY * (1 - eased))
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const ctx = gsap.context(() => {
@@ -185,11 +221,21 @@ export default function Hero() {
             independently of font-size. Raise/lower the 1.3 to taste. */}
         <h1
           ref={wordmarkRef}
-          className="pointer-events-none -mr-[0.02em] origin-center -translate-y-[15vh] scale-y-[1.3] select-none whitespace-nowrap font-serif font-normal uppercase leading-[0.9] lg:-translate-y-[16vh]"
+          className="pointer-events-none -mr-[0.02em] origin-center -translate-y-[15vh] scale-y-[1.3] select-none whitespace-nowrap py-[0.14em] font-serif font-normal uppercase leading-[0.9] lg:-translate-y-[16vh]"
           style={{
             fontSize: WATERMARK_SIZE,
             color: WATERMARK_COLOR,
             opacity: WATERMARK_OPACITY,
+            // top→bottom dissolve (see WATERMARK_MASK); -webkit- for Safari.
+            // The mask box is the element's own box, so the py-[0.14em] above
+            // gives the caps room inside it — without that padding the tight
+            // leading-[0.9] line box clips the glyph tops/bottoms.
+            maskImage: WATERMARK_MASK,
+            WebkitMaskImage: WATERMARK_MASK,
+            maskSize: '100% 100%',
+            WebkitMaskSize: '100% 100%',
+            maskRepeat: 'no-repeat',
+            WebkitMaskRepeat: 'no-repeat',
             // negative right margin above cancels the trailing tracking space,
             // so the tracked line stays optically centred
             letterSpacing: WATERMARK_TRACKING,
