@@ -624,7 +624,7 @@ export default function CarModel() {
     outer.current.visible = carOpacity > 0.001
 
     // X/Y position choreography — lerped between slide keyframes (centred on mobile).
-    const desktop = window.innerWidth >= 768
+    const desktop = window.innerWidth >= 1024 // mobile + tablet share the small-screen composition
     const targetX = desktop ? lerp(CAR_X[si], CAR_X[si + 1], sf) : 0
     const targetY = desktop ? lerp(CAR_Y[si], CAR_Y[si + 1], sf) : 0
     // While the drive-in runs, hold the depth base at the Slide-4 rest so the
@@ -643,7 +643,7 @@ export default function CarModel() {
 
     // Per-slide scale (after load, desktop only) — keeps far-left Slide 2 the
     // same on-screen size as the others.
-    if (loaded.current && window.innerWidth >= 768) {
+    if (loaded.current && window.innerWidth >= 1024) {
       const targetS = lerp(SCALE_SLIDE[si], SCALE_SLIDE[si + 1], sf)
       const cur = outer.current.scale.x
       outer.current.scale.setScalar(lerp(cur, targetS, 0.08))

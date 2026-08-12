@@ -11,15 +11,10 @@ import { useFx, playEngine } from '../store/useFx'
 // live-updates paint, rim light, --accent, price and finish name.
 const WORDMARK = 'AVENTADOR'
 
-// Background wordmark (per spec): OUTLINE stroke + a low-opacity fill — an
-// editorial, premium ghost behind the car rather than a flat grey fill. The
-// hairline stroke defines the letters around the car; the faint fill keeps it a
-// quiet depth layer that never fights the car.
-const WORDMARK_STYLE: React.CSSProperties = {
-  color: 'transparent',
-  WebkitTextFillColor: 'rgba(244,244,242,0.022)',
-  WebkitTextStroke: '1px rgba(244,244,242,0.085)',
-}
+// Background wordmark treatment lives per-letter as responsive arbitrary classes
+// on the spans below: a soft grey fill + hairline stroke that reads a touch
+// stronger on mobile and near-invisible on desktop, so it stays a quiet depth
+// layer that never fights the car.
 
 export default function Hero() {
   const finish = useConfig((s) => s.finish)
@@ -170,16 +165,19 @@ export default function Hero() {
     >
       {/* z-0 — wordmark BEHIND the car (canvas is z-10, transparent). */}
       <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
+        {/* Wordmark behind the car. Mobile/tablet: smaller + more faded (minimal),
+            overlapping the car's lower part. Desktop: full-size. */}
         <h1
           ref={wordmarkRef}
-          className="select-none whitespace-nowrap font-display uppercase leading-[0.8]"
-          style={{
-            fontSize: 'clamp(64px, 18vw, 260px)',
-            letterSpacing: '-0.02em',
-          }}
+          className="-translate-y-[3vh] select-none whitespace-nowrap font-display uppercase leading-[0.8] tracking-[0.04em] blur-[0.7px] lg:translate-y-0 lg:blur-none lg:tracking-[-0.02em]"
+          style={{ fontSize: 'clamp(46px, 14vw, 260px)' }}
         >
           {WORDMARK.split('').map((c, i) => (
-            <span key={i} data-letter className="inline-block" style={WORDMARK_STYLE}>
+            <span
+              key={i}
+              data-letter
+              className="inline-block text-transparent [-webkit-text-fill-color:#f4f4f259] lg:[-webkit-text-fill-color:#f4f4f206] lg:[-webkit-text-stroke:1px_#f4f4f216]"
+            >
               {c}
             </span>
           ))}
@@ -207,31 +205,52 @@ export default function Hero() {
         <Navbar />
 
         <div className="relative flex-1">
-          {/* top-left badge */}
+          {/* mobile/tablet: prev/next stacked on the right (← top, → bottom) */}
+          <div
+            className="absolute right-4 top-[43%] flex -translate-y-1/2 flex-col gap-2 lg:hidden"
+            style={{ pointerEvents: 'auto' }}
+          >
+            <button
+              onClick={prev}
+              aria-label="Previous finish"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-lg leading-none text-hi transition-colors hover:text-accent"
+            >
+              ‹
+            </button>
+            <button
+              onClick={next}
+              aria-label="Next finish"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-lg leading-none text-hi transition-colors hover:text-accent"
+            >
+              ›
+            </button>
+          </div>
+          {/* top-left badge (desktop only) */}
           <span
             data-hero-fade
-            className="absolute left-6 top-4 font-mono text-[10px] tracking-data text-lo md:left-10"
+            className="absolute left-6 top-4 hidden font-mono text-[10px] tracking-data text-lo lg:left-10 lg:block"
           >
             LIMITED <span className="text-lo/40">—</span> 001 / 350
           </span>
 
-          {/* bottom-left: price + meta */}
+          {/* bottom-left: price + meta (centred above the CTA on mobile/tablet) */}
           <div
             data-hero-fade
-            className="absolute bottom-8 left-6 md:left-10"
+            className="absolute inset-x-0 bottom-[6.75rem] px-4 text-center lg:inset-x-auto lg:bottom-8 lg:left-10 lg:px-0 lg:text-left"
             style={{ pointerEvents: 'auto' }}
           >
             <div className="overflow-hidden py-[0.06em]">
               <div
                 ref={priceRef}
-                className="font-display leading-none text-accent [font-variant-numeric:tabular-nums]"
-                style={{ fontSize: 'clamp(28px, 4vw, 52px)' }}
+                className="font-body font-light leading-none tracking-[-0.03em] text-accent [font-variant-numeric:tabular-nums] lg:font-display lg:font-normal lg:tracking-normal"
+                style={{ fontSize: 'clamp(56px, 9vw, 60px)' }}
               >
                 {shownPrice}
               </div>
             </div>
-            <div className="mt-2.5 font-mono text-[10px] tracking-data text-lo">
-              DRIVETRAIN: AWD <span className="text-lo/40">·</span> V12{' '}
+            <div className="mt-2 font-mono text-[8px] tracking-[0.2em] text-lo lg:mt-2.5 lg:text-[10px] lg:tracking-data">
+              <span className="hidden lg:inline">DRIVETRAIN: </span>AWD{' '}
+              <span className="text-lo/40">·</span> V12{' '}
               <span className="text-lo/40">·</span> {finish.name}
             </div>
             {/* mute toggle for the engine-rev sound */}
@@ -239,7 +258,7 @@ export default function Hero() {
               onClick={toggleMute}
               aria-label={muted ? 'Unmute sound' : 'Mute sound'}
               aria-pressed={muted}
-              className="mt-3 flex items-center gap-2 font-mono text-[10px] tracking-data text-lo transition-colors hover:text-hi"
+              className="mt-3 hidden items-center justify-center gap-2 font-mono text-[10px] tracking-data text-lo transition-colors hover:text-hi lg:flex lg:justify-start"
             >
               <svg
                 width="14"
@@ -263,15 +282,17 @@ export default function Hero() {
             </button>
           </div>
 
-          {/* bottom-centre: CTA + swatches */}
+          {/* CTA + swatches. Mobile/tablet: full-width CTA pinned near the bottom
+              with the swatch row directly ABOVE it (reachable, never covered).
+              Desktop: centred, CTA above swatches. */}
           <div
             data-hero-fade
-            className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4"
+            className="absolute inset-x-0 bottom-6 flex flex-col-reverse items-center gap-4 px-5 lg:inset-x-auto lg:bottom-8 lg:left-1/2 lg:-translate-x-1/2 lg:flex-col lg:px-0"
             style={{ pointerEvents: 'auto' }}
           >
             <button
               onClick={reserve}
-              className="clip-cta min-w-[168px] bg-accent px-7 py-3 font-mono text-[11px] font-bold tracking-data text-carbon transition-transform hover:scale-[1.03]"
+              className="clip-cta w-full bg-accent px-7 py-4 font-mono text-[11px] font-bold tracking-[0.2em] text-carbon transition-transform hover:scale-[1.03] lg:w-auto lg:min-w-[168px] lg:py-3 lg:tracking-data"
             >
               <span className="block overflow-hidden py-[0.15em]">
                 <span ref={labelRef} className="block">
@@ -279,7 +300,7 @@ export default function Hero() {
                 </span>
               </span>
             </button>
-            <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 lg:flex">
               {FINISHES.map((f, i) => (
                 <button
                   key={f.hex}
@@ -298,10 +319,10 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* bottom-right: arrows + vertical pagination */}
+          {/* bottom-right: arrows + vertical pagination (desktop only) */}
           <div
             data-hero-fade
-            className="absolute bottom-8 right-6 hidden items-center gap-5 md:flex md:right-10"
+            className="absolute bottom-8 right-6 hidden items-center gap-5 lg:flex lg:right-10"
             style={{ pointerEvents: 'auto' }}
           >
             <div className="flex gap-2">

@@ -13,10 +13,12 @@ export default function Slide3Dimensions() {
       style={{ pointerEvents: 'none' }}
     >
       {/* z-20 so DOM content renders ABOVE the fixed canvas (z-10). */}
-      <div className="relative z-20 flex h-full items-center justify-end px-6 md:px-16">
+      <div className="relative z-20 flex h-full items-end justify-end px-6 pb-20 lg:items-center lg:pb-0 lg:px-16">
         {/* subtle contrast backing (mirrored to the right) */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-full bg-gradient-to-l from-carbon via-carbon/70 to-transparent md:w-[62%]" />
-        <div ref={ref} className="relative w-full md:w-[46%] md:text-right">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-full bg-gradient-to-l from-carbon via-carbon/70 to-transparent lg:w-[62%]" />
+        {/* mobile: bottom scrim under the stacked stats */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-carbon via-carbon/60 to-transparent lg:hidden" />
+        <div ref={ref} className="relative w-full lg:w-[46%] lg:text-right">
           <span
             data-reveal
             className="mb-8 block font-mono text-[11px] tracking-data text-lo"

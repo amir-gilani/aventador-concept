@@ -17,10 +17,16 @@ function CameraRig() {
   const { camera } = useThree()
   useFrame(() => {
     const t = scrollState.progress
-    camera.position.x = lerp(camera.position.x, CAM_X, 0.07)
+    // On phones pull the camera back and reduce the side angle so the car reads
+    // smaller and centred, leaving room for the stacked text.
+    const mobile = window.innerWidth < 1024 // small-screen framing for mobile + tablet
+    const baseZ = mobile ? 13.5 : 6.2
+    camera.position.x = lerp(camera.position.x, mobile ? 3.4 : CAM_X, 0.07)
     camera.position.y = lerp(camera.position.y, 1.7 - t * 0.7, 0.07)
-    camera.position.z = lerp(camera.position.z, 6.2 - t * 1.6, 0.07)
-    camera.lookAt(0, 0.55, 0)
+    camera.position.z = lerp(camera.position.z, baseZ - t * 1.6, 0.07)
+    // look lower on mobile so the car sits HIGHER in the frame (room for the
+    // wordmark + text below it)
+    camera.lookAt(mobile ? -0.3 : 0, mobile ? -1.9 : 0.55, 0)
   })
   return null
 }
@@ -56,7 +62,7 @@ function RimLight() {
 export default function Experience() {
   const [desktop, setDesktop] = useState(true)
   useEffect(() => {
-    const update = () => setDesktop(window.innerWidth >= 768)
+    const update = () => setDesktop(window.innerWidth >= 1024)
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)

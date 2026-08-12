@@ -28,7 +28,7 @@ export default function SlideFrame() {
   }, [])
 
   return (
-    <div ref={ref} className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+    <div ref={ref} className="pointer-events-none fixed inset-0 z-40 hidden overflow-hidden md:block">
       {/* An 8px accent band: an inner rounded rectangle whose huge accent
           box-shadow fills OUTWARD to the (square) screen edges. Result — outer
           corners stay flush to the screen, inner corners are rounded. */}

@@ -40,18 +40,18 @@ export default function Navbar() {
 
   return (
     <nav
-      className="relative z-30 flex w-full items-center justify-between px-6 py-5 mix-blend-difference md:px-10"
+      className="relative z-30 flex w-full items-center justify-between px-6 py-5 mix-blend-difference lg:px-10"
       style={{ pointerEvents: 'none' }}
     >
       <div className="flex flex-col leading-none" style={{ pointerEvents: 'auto' }}>
         <span className="font-display text-lg tracking-wide">AUTOMOBILI</span>
-        <span className="font-mono text-[10px] tracking-data text-lo">
+        <span className="hidden font-mono text-[10px] tracking-data text-lo lg:block">
           CONCEPT DIVISION
         </span>
       </div>
 
       <div
-        className="hidden gap-8 font-mono text-xs tracking-data md:flex"
+        className="hidden gap-8 font-mono text-xs tracking-data lg:flex"
         style={{ pointerEvents: 'auto' }}
       >
         {['MODEL', 'PERFORMANCE', 'CONFIGURE'].map((item) => (
@@ -69,7 +69,7 @@ export default function Navbar() {
       {/* Right side: cart + user. Clean 1.5px line icons in the nav text
           colour (currentColor). Both stay visible on mobile — no hamburger.
           gap-7 ≈ 28px between them. */}
-      <div className="flex items-center gap-7" style={{ pointerEvents: 'auto' }}>
+      <div className="flex flex-row-reverse items-center gap-4" style={{ pointerEvents: 'auto' }}>
         <button
           onClick={openCart}
           className="relative text-hi transition-opacity hover:opacity-60"

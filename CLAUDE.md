@@ -149,8 +149,21 @@ gsap.ticker.lagSmoothing(0)
 
 ## RESPONSIVE
 
-- Tablet 768–1024: hamburger; wordmark/stats scale down; camera back ~15%; price+CTA stack.
-- Mobile <768: 16px padding; hide arrows (keep swatches); dpr cap 1.5; **Bloom off**; single column. Test at 375 / 768 / 1440.
+**Mobile (<768) & tablet (768–1024) hero — this vertical composition replaces the small-screen stacking. Top → bottom:**
+
+1. **Compact navbar row** — wordmark left, account + menu icons right. Stays in the hero's normal flow and scrolls away with the hero (not fixed).
+2. **Car in the upper ~45%** of the viewport, centred horizontally. On these breakpoints override the keyframe x offset to **0** and raise the car's screen position so it sits HIGH in the frame, not dead centre.
+3. **Anton wordmark BEHIND** and overlapping the lower part of the car — heavy, full-bleed, tracked wide, mid-grey low-contrast fill so the car reads in front of it. Split it across the width with a gap in the middle (reference).
+4. **Price** in `--accent`, large, centred. Directly under it a mono caption line in `--lo` (SIZE / DRIVETRAIN metadata).
+5. **Full-width RESERVE YOURS CTA** pinned near the bottom — accent fill + the angular `clip-path`. It is the strongest element on screen.
+6. **Prev/next arrows** as small circular outline buttons **stacked vertically on the right edge**, vertically centred against the car.
+
+**Rules:**
+- Everything that carries colour — price, CTA fill, active swatch ring — reads from `--accent`, so a finish change repaints the whole screen at once.
+- Car stays centred at **x = 0** on these breakpoints; the ±3.4 crop offsets are **desktop only**.
+- **No horizontal scroll at 375px.** Bloom stays off below 768. dpr cap 1.5.
+- Keep the swatch row reachable **without covering the CTA**.
+- Test at **375 / 768 / 1440**.
 
 ---
 
