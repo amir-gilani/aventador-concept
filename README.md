@@ -1,3 +1,4 @@
+
 <div align="center">
 
 # AVENTADOR — CONCEPT
@@ -15,7 +16,7 @@ Scroll to rotate the car, drag to spin it, tap a colour to repaint the entire pa
 
 ## Demo
 
-https://github.com/user-attachments/assets/9dc187e6-917b-45ea-a7bb-74acd9bcf14d
+<img width="800" height="361" alt="IMG_7352-ezgif com-video-to-gif-converter (4)" src="https://github.com/user-attachments/assets/3177e8e2-c6dc-43a4-b7c4-14fd9d40b723" />
 
 <div align="center">
   <img src="docs/demo.gif" alt="Scroll choreography and live colour configurator" width="100%" />
