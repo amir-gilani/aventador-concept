@@ -15,12 +15,7 @@ Scroll to rotate the car, drag to spin it, tap a colour to repaint the entire pa
 
 ## Demo
 
-<!-- ─── DROP YOUR GIF HERE ───────────────────────────────────────
-     1. Record a short screen capture (scroll through the 5 slides,
-        then click a few colour swatches).
-     2. Save it as docs/demo.gif  (aim for < 10 MB so GitHub inlines it)
-     3. The tag below will pick it up automatically — nothing else to edit.
-     ──────────────────────────────────────────────────────────── -->
+https://github.com/user-attachments/assets/9dc187e6-917b-45ea-a7bb-74acd9bcf14d
 
 <div align="center">
   <img src="docs/demo.gif" alt="Scroll choreography and live colour configurator" width="100%" />
