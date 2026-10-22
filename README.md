@@ -1,7 +1,7 @@
 
 <div align="center">
 
-# AVENTADOR — CONCEPT
+# AVENTADOR 
 
 **A cinematic 3D supercar showcase with a live paint configurator.**
 Scroll to rotate the car, drag to spin it, tap a colour to repaint the entire page.
